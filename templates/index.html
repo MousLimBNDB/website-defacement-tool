@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Defacement Sentinel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+    <div class="glow-container">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Navigation Header -->
+        <header class="app-header">
+            <div class="brand">
+                <span class="brand-icon">🛡️</span>
+                <div class="brand-text">
+                    <h1>Defacement Sentinel</h1>
+                    <p>Continuous Visual & AI Integrity Monitoring</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div id="system-status-badge" class="status-badge secure">
+                    <span class="status-dot"></span>
+                    <span class="status-text">All Systems Secure</span>
+                </div>
+                <button id="btn-settings" class="btn btn-secondary">
+                    <span>⚙️ Settings</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Counter Panel -->
+        <section class="stats-panel">
+            <div class="stat-card">
+                <div class="stat-icon">🌐</div>
+                <div class="stat-info">
+                    <h3>Monitored Sites</h3>
+                    <div class="stat-value" id="stat-active-sites">0 / 0</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔄</div>
+                <div class="stat-info">
+                    <h3>Total Checks</h3>
+                    <div class="stat-value" id="stat-total-checks">0</div>
+                </div>
+            </div>
+            <div class="stat-card alert-state-card" id="card-alert-defacements">
+                <div class="stat-icon">🚨</div>
+                <div class="stat-info">
+                    <h3>Active Alerts</h3>
+                    <div class="stat-value" id="stat-active-alerts">0</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🛡️</div>
+                <div class="stat-info">
+                    <h3>Reliability</h3>
+                    <div class="stat-value" id="stat-reliability">100%</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Layout Split -->
+        <main class="app-body">
+            <!-- Left Panel: Target Management -->
+            <section class="panel left-panel">
+                <div class="panel-header">
+                    <h2>Target Websites</h2>
+                    <button id="btn-show-add-target" class="btn btn-primary btn-sm">+ Add Site</button>
+                </div>
+
+                <!-- Add Target Dialog (Inline dropdown/toggle) -->
+                <div id="add-target-box" class="collapsed-box">
+                    <form id="form-add-target" class="glass-form">
+                        <h3>Monitor New Website</h3>
+                        <div class="form-group">
+                            <label for="target-name">Website Name</label>
+                            <input type="text" id="target-name" placeholder="e.g. Company Portal" required autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="target-url">Website URL</label>
+                            <input type="url" id="target-url" placeholder="https://example.com" required autocomplete="off">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" id="btn-cancel-add" class="btn btn-text">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Start Monitoring</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Targets List -->
+                <div id="targets-list" class="targets-list">
+                    <div class="loading-spinner">Loading monitored targets...</div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Monitoring Logs & Comparison -->
+            <section class="panel right-panel">
+                <div class="panel-header">
+                    <h2>Live Audit Logs</h2>
+                    <div class="filter-actions">
+                        <select id="select-filter-target" class="select-dropdown">
+                            <option value="">All Sites</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Logs Feed -->
+                <div id="logs-list" class="logs-list">
+                    <div class="loading-spinner">Loading activity feed...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal: Settings Configurations -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content glassmorphism">
+            <div class="modal-header">
+                <h2>System Configurations</h2>
+                <button class="modal-close" id="btn-close-settings">×</button>
+            </div>
+            <form id="form-settings" class="modal-form">
+                <div class="tabs-header">
+                    <button type="button" class="tab-btn active" data-tab="tab-general">General</button>
+                    <button type="button" class="tab-btn" data-tab="tab-alerts">Alerts Configuration</button>
+                </div>
+
+                <div class="tab-content active" id="tab-general">
+                    <div class="form-group">
+                        <label for="check-interval">Capture & Audit Frequency (Minutes)</label>
+                        <input type="number" id="check-interval" min="1" max="1440" required>
+                        <small>Time interval between taking snapshots of monitored websites.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="similarity-threshold">Similarity Threshold (0.0 - 1.0)</label>
+                        <input type="number" id="similarity-threshold" min="0.5" max="1.0" step="0.01" required>
+                        <small>Below this similarity ratio, Gemini AI visual audit will be invoked. (Recommended: 0.98)</small>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-alerts">
+                    <h3>Discord / Slack Webhooks</h3>
+                    <div class="form-group">
+                        <label for="webhook-url">Webhook Integration URL</label>
+                        <input type="url" id="webhook-url" placeholder="https://discord.com/api/webhooks/...">
+                        <small>Posts defacement alerts immediately with AI diagnostics.</small>
+                    </div>
+
+                    <h3>SMTP Email Configuration</h3>
+                    <div class="form-row">
+                        <div class="form-group col-8">
+                            <label for="smtp-host">SMTP Host</label>
+                            <input type="text" id="smtp-host" placeholder="smtp.gmail.com">
+                        </div>
+                        <div class="form-group col-4">
+                            <label for="smtp-port">SMTP Port</label>
+                            <input type="number" id="smtp-port" placeholder="587">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="smtp-user">SMTP Username / Email</label>
+                            <input type="text" id="smtp-user" placeholder="security@yourdomain.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="smtp-pass">SMTP Password</label>
+                            <input type="password" id="smtp-pass" placeholder="••••••••••••">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="alert-email-to">Alert Recipient Email</label>
+                        <input type="email" id="alert-email-to" placeholder="admin@yourdomain.com">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-settings">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Configs</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Visual Inspector -->
+    <div id="inspector-modal" class="modal-overlay">
+        <div class="modal-content inspector-content glassmorphism">
+            <div class="modal-header">
+                <h2 id="inspector-title">Audit Visual Comparison</h2>
+                <button class="modal-close" id="btn-close-inspector">×</button>
+            </div>
+            <div class="inspector-body">
+                <div class="inspector-meta">
+                    <div class="meta-item"><strong>Website:</strong> <span id="inspect-site">Name</span></div>
+                    <div class="meta-item"><strong>Score:</strong> <span id="inspect-score">0.0</span></div>
+                    <div class="meta-item"><strong>Time:</strong> <span id="inspect-time">Timestamp</span></div>
+                    <div class="meta-item"><strong>AI Assessment:</strong> <span id="inspect-tag" class="tag">Assessment</span></div>
+                </div>
+                
+                <div class="inspector-summary-box">
+                    <strong>AI Diagnostic Report:</strong>
+                    <p id="inspect-summary">Diagnostic analysis...</p>
+                </div>
+
+                <div class="slider-tabs">
+                    <button class="slider-tab-btn active" data-view="split">Interactive Slider</button>
+                    <button class="slider-tab-btn" data-view="side">Side-by-Side</button>
+                </div>
+
+                <!-- Visual slider wrapper -->
+                <div class="visual-comparison-container" id="visual-container-split">
+                    <div class="image-comparison-slider">
+                        <!-- Baseline image (Always bottom) -->
+                        <img id="img-baseline" src="" alt="Baseline (Clean)">
+                        
+                        <!-- Overlay current / difference image (Dynamic width) -->
+                        <div class="image-overlay-wrapper" id="img-overlay-wrap">
+                            <img id="img-current" src="" alt="Audit Screenshot">
+                        </div>
+                        
+                        <!-- Drag Slider control -->
+                        <input type="range" min="0" max="100" value="50" class="comparison-slider" id="slider-handle">
+                        
+                        <!-- Labels -->
+                        <div class="slider-label label-before">Baseline (Clean)</div>
+                        <div class="slider-label label-after">Audit Snapshot (Slide)</div>
+                    </div>
+                </div>
+
+                <!-- Side by side container -->
+                <div class="side-by-side-container hidden" id="visual-container-side">
+                    <div class="img-pane">
+                        <h4>Baseline (Clean)</h4>
+                        <img id="side-img-baseline" src="" alt="Baseline">
+                    </div>
+                    <div class="img-pane">
+                        <h4>Audit Screenshot</h4>
+                        <img id="side-img-current" src="" alt="Current">
+                    </div>
+                    <div class="img-pane">
+                        <h4>Diff Highlights (Red = Changes)</h4>
+                        <img id="side-img-diff" src="" alt="Diff Highlight">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
