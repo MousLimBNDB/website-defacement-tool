@@ -21,7 +21,7 @@ def analyze_defacement(baseline_path: str, current_path: str, diff_path: str) ->
     
     Returns a dictionary matching the DefacementAnalysis structure.
     """
-    api_key = os.environ.get("GEMINI_API_KEY") or "AQ.Ab8RN6IZcGjUJHLZvKxWo1BFnOg2cLX_b3Bm7M7AEZ--4Wl77Q"
+    api_key = os.environ.get("GEMINI_API_KEY") 
     if not api_key:
         logger.warning("GEMINI_API_KEY environment variable is not set. Visual AI analysis will be skipped.")
         return {
