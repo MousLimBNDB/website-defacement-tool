@@ -248,19 +248,20 @@ def sync_scheduler_jobs():
     
     targets = database.get_targets()
     active_count = 0
+    now = datetime.now()
     for target in targets:
         if target['is_active']:
             # Run first check immediately, then check every N minutes
             job_id = f"check_{target['id']}"
             scheduler.add_job(
-                func=lambda t_id=target['id']: asyncio.create_task(run_check_for_target(t_id)),
+                func=run_check_for_target,
+                args=[target['id']],
                 trigger="interval",
                 minutes=interval_mins,
                 id=job_id,
-                replace_existing=True
+                replace_existing=True,
+                next_run_time=now
             )
-            # Trigger an immediate run in the background
-            asyncio.create_task(run_check_for_target(target['id']))
             active_count += 1
             logger.info(f"Scheduled check job for {target['name']} every {interval_mins} minutes.")
             
