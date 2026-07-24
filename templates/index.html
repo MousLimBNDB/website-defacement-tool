@@ -131,6 +131,7 @@
             <form id="form-settings" class="modal-form">
                 <div class="tabs-header">
                     <button type="button" class="tab-btn active" data-tab="tab-general">General</button>
+                    <button type="button" class="tab-btn" data-tab="tab-ai">AI Engine</button>
                     <button type="button" class="tab-btn" data-tab="tab-alerts">Alerts Configuration</button>
                 </div>
 
@@ -143,7 +144,28 @@
                     <div class="form-group">
                         <label for="similarity-threshold">Similarity Threshold (0.0 - 1.0)</label>
                         <input type="number" id="similarity-threshold" min="0.5" max="1.0" step="0.01" required>
-                        <small>Below this similarity ratio, Gemini AI visual audit will be invoked. (Recommended: 0.98)</small>
+                        <small>Below this similarity ratio, AI visual audit will be invoked. (Recommended: 0.98)</small>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-ai">
+                    <div class="form-group">
+                        <label for="ai-provider">AI Provider</label>
+                        <select id="ai-provider" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); color: var(--text-primary);">
+                            <option value="ollama">Ollama (Local Vision AI)</option>
+                            <option value="gemini">Google Gemini AI</option>
+                        </select>
+                        <small>Choose the AI engine for visual defacement analysis.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="ollama-url">Ollama Host URL</label>
+                        <input type="text" id="ollama-url" placeholder="http://localhost:11434">
+                        <small>Local or remote Ollama server URL (Default: http://localhost:11434).</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="ollama-model">Ollama Vision Model</label>
+                        <input type="text" id="ollama-model" placeholder="llama3.2-vision">
+                        <small>Recommended vision models: llama3.2-vision, llava, qwen2-vl, bakllava.</small>
                     </div>
                 </div>
 

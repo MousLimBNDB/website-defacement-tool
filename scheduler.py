@@ -13,7 +13,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import database
 import screenshot_engine
 import image_comparator
-import gemini_analyzer
+import ai_analyzer
 
 logger = logging.getLogger(__name__)
 
@@ -111,10 +111,10 @@ async def run_check_for_target(target_id: int):
     change_type = "No Change"
     analysis_summary = f"No meaningful visual changes detected. Similarity score: {similarity:.4f}"
     
-    # If similarity is below the threshold, invoke Gemini visual analysis
+    # If similarity is below the threshold, invoke AI visual analysis
     if similarity < threshold:
-        logger.info(f"Similarity score {similarity:.4f} is below threshold {threshold}. Querying Gemini API...")
-        analysis = gemini_analyzer.analyze_defacement(baseline_path, current_path, diff_path)
+        logger.info(f"Similarity score {similarity:.4f} is below threshold {threshold}. Querying AI provider...")
+        analysis = ai_analyzer.analyze_defacement(baseline_path, current_path, diff_path)
         
         is_defaced = 1 if analysis.get("is_defaced") else 0
         confidence = analysis.get("confidence", 0)

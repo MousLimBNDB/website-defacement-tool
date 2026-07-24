@@ -62,6 +62,9 @@ def init_db():
     cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('webhook_url', '')")
     cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('check_interval_mins', '5')")
     cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('similarity_threshold', '0.98')")
+    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('ai_provider', 'ollama')")
+    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('ollama_url', 'http://localhost:11434')")
+    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('ollama_model', 'llama3.2-vision')")
     
     conn.commit()
     conn.close()

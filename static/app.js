@@ -435,6 +435,9 @@ async function openSettingsModal() {
         // Populate inputs
         document.getElementById('check-interval').value = state.settings.check_interval_mins;
         document.getElementById('similarity-threshold').value = state.settings.similarity_threshold;
+        document.getElementById('ai-provider').value = state.settings.ai_provider || 'ollama';
+        document.getElementById('ollama-url').value = state.settings.ollama_url || 'http://localhost:11434';
+        document.getElementById('ollama-model').value = state.settings.ollama_model || 'llama3.2-vision';
         document.getElementById('webhook-url').value = state.settings.webhook_url || '';
         document.getElementById('smtp-host').value = state.settings.smtp_host || '';
         document.getElementById('smtp-port').value = state.settings.smtp_port || '587';
@@ -456,6 +459,9 @@ async function handleSaveSettings(e) {
     e.preventDefault();
     const check_interval_mins = parseInt(document.getElementById('check-interval').value);
     const similarity_threshold = parseFloat(document.getElementById('similarity-threshold').value);
+    const ai_provider = document.getElementById('ai-provider').value;
+    const ollama_url = document.getElementById('ollama-url').value.trim();
+    const ollama_model = document.getElementById('ollama-model').value.trim();
     const webhook_url = document.getElementById('webhook-url').value.trim();
     const smtp_host = document.getElementById('smtp-host').value.trim();
     const smtp_port = parseInt(document.getElementById('smtp-port').value) || 587;
@@ -470,6 +476,9 @@ async function handleSaveSettings(e) {
             body: JSON.stringify({
                 check_interval_mins,
                 similarity_threshold,
+                ai_provider,
+                ollama_url,
+                ollama_model,
                 webhook_url,
                 smtp_host,
                 smtp_port,

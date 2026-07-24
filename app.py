@@ -52,6 +52,9 @@ class SettingsUpdate(BaseModel):
     webhook_url: str
     check_interval_mins: int
     similarity_threshold: float
+    ai_provider: str = "ollama"
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2-vision"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
