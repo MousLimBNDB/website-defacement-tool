@@ -63,7 +63,15 @@ async def run_check_for_target(target_id: int):
     db_screenshot_path = f"/static/screenshots/{target_id}/current_{timestamp}.png"
     db_diff_path = f"/static/screenshots/{target_id}/diff_{timestamp}.png"
     
-    success = await screenshot_engine.capture_screenshot(url, current_path)
+    ignored_selectors = target.get('ignored_selectors', '') or ''
+    target_selectors = target.get('target_selectors', '') or ''
+    
+    success = await screenshot_engine.capture_screenshot(
+        url=url, 
+        output_path=current_path, 
+        ignored_selectors=ignored_selectors, 
+        target_selectors=target_selectors
+    )
     if not success:
         database.add_log(
             target_id=target_id,

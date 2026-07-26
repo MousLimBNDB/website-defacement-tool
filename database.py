@@ -21,10 +21,20 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         url TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
+        ignored_selectors TEXT DEFAULT '',
+        target_selectors TEXT DEFAULT '',
         is_active INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
+    
+    # Auto-migration for existing databases
+    cursor.execute("PRAGMA table_info(targets)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "ignored_selectors" not in columns:
+        cursor.execute("ALTER TABLE targets ADD COLUMN ignored_selectors TEXT DEFAULT ''")
+    if "target_selectors" not in columns:
+        cursor.execute("ALTER TABLE targets ADD COLUMN target_selectors TEXT DEFAULT ''")
     
     # 2. Monitoring log records table
     cursor.execute("""
@@ -70,20 +80,37 @@ def init_db():
     conn.close()
 
 # Database helper functions
-def add_target(url: str, name: str):
+def add_target(url: str, name: str, ignored_selectors: str = "", target_selectors: str = ""):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO targets (url, name) VALUES (?, ?)", (url, name))
+        cursor.execute("INSERT INTO targets (url, name, ignored_selectors, target_selectors) VALUES (?, ?, ?, ?)", 
+                       (url, name, ignored_selectors, target_selectors))
         conn.commit()
         return cursor.lastrowid
     except sqlite3.IntegrityError:
-        # If already exists, return its ID
+        # If already exists, update options and return ID
         cursor.execute("SELECT id FROM targets WHERE url = ?", (url,))
         row = cursor.fetchone()
-        return row['id'] if row else None
+        if row:
+            cursor.execute("UPDATE targets SET name = ?, ignored_selectors = ?, target_selectors = ? WHERE id = ?",
+                           (name, ignored_selectors, target_selectors, row['id']))
+            conn.commit()
+            return row['id']
+        return None
     finally:
         conn.close()
+
+def update_target(target_id: int, url: str, name: str, ignored_selectors: str = "", target_selectors: str = ""):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE targets 
+        SET url = ?, name = ?, ignored_selectors = ?, target_selectors = ?
+        WHERE id = ?
+    """, (url, name, ignored_selectors, target_selectors, target_id))
+    conn.commit()
+    conn.close()
 
 def get_targets():
     conn = get_db_connection()

@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🏎️ Elite Motors – Zone-H Defacement Lab</title>
+    <style>
+        /* ============================================
+           RESET & BASE
+           ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+            transition: background 0.5s ease;
+            overflow-x: hidden;
+        }
+
+        /* ============================================
+           MAIN CONTAINER (Visible when restored)
+           ============================================ */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            transition: opacity 0.5s, filter 0.5s;
+        }
+
+        .container.hidden {
+            display: none;
+        }
+
+        /* ============================================
+           HEADER
+           ============================================ */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #2a2a3a;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo span {
+            font-weight: 300;
+            -webkit-text-fill-color: #888;
+        }
+
+        .stats {
+            display: flex;
+            gap: 25px;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .stats div {
+            text-align: center;
+        }
+
+        .stats .number {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* ============================================
+           BANNER
+           ============================================ */
+        .banner {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 30px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            border: 1px solid #2a2a4a;
+            text-align: center;
+            transition: all 0.5s;
+        }
+
+        .banner h1 {
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+        }
+
+        .banner p {
+            color: #aaa;
+            font-size: 1.1rem;
+        }
+
+        .banner .highlight {
+            color: #ffd93d;
+        }
+
+        /* ============================================
+           CAR GRID
+           ============================================ */
+        .car-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .car-card {
+            background: #14141f;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #2a2a3a;
+            transition: transform 0.3s, border-color 0.3s;
+            position: relative;
+        }
+
+        .car-card:hover {
+            transform: translateY(-6px);
+            border-color: #ffd93d;
+        }
+
+        .car-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .car-info {
+            padding: 18px 20px 20px;
+            position: relative;
+        }
+
+        .car-info h3 {
+            font-size: 1.3rem;
+            margin-bottom: 4px;
+        }
+
+        .car-info .model {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .price-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+
+        .car-info .price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ffd93d;
+            transition: all 0.3s;
+        }
+
+        .sale-badge {
+            display: none;
+            background: #ef4444;
+            color: #fff;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            animation: pulseBadge 1s infinite;
+        }
+
+        .sale-badge.active {
+            display: inline-block;
+        }
+
+        @keyframes pulseBadge {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .car-info .specs {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+            color: #aaa;
+            margin: 10px 0;
+        }
+
+        .car-info .status {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status.in-stock {
+            background: #1e3a2a;
+            color: #4ade80;
+        }
+
+        .status.sold {
+            background: #3a1e1e;
+            color: #f87171;
+        }
+
+        .status.pre-order {
+            background: #2a2a1e;
+            color: #fbbf24;
+        }
+
+        .car-info .updated {
+            margin-top: 12px;
+            font-size: 0.7rem;
+            color: #555;
+        }
+
+        /* ============================================
+           ZONE-H REALISTIC DEFACEMENT OVERLAY
+           ============================================ */
+        .deface-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            display: none;
+            /* Changed to flex via JS */
+            justify-content: center;
+            align-items: center;
+            background-color: #000000;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            font-family: 'Courier New', Courier, monospace;
+            transition: background-image 0.5s ease;
+        }
+
+        .deface-overlay.active {
+            display: flex;
+        }
+
+        .deface-content {
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+            text-align: center;
+            color: #00ff00;
+            /* Matrix Green text */
+            z-index: 2;
+            /* Keep above background overlay */
+        }
+
+        .deface-content h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            color: #ff0000;
+            /* Crimson Header */
+            text-shadow: 0 0 15px rgba(255, 0, 0, 0.9), 0 0 30px #000;
+            margin-bottom: 20px;
+            letter-spacing: 4px;
+        }
+
+        .deface-content .hacker-banner {
+            font-size: 1.8rem;
+            background: rgba(17, 17, 17, 0.85);
+            border: 1px dashed #ff0000;
+            padding: 15px;
+            color: #ffffff;
+            margin-bottom: 25px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        .deface-content .hacker-banner span {
+            color: #ff0000;
+        }
+
+        .deface-content .political-msg {
+            font-size: 1.3rem;
+            color: #00ffff;
+            margin: 20px 0;
+            font-style: italic;
+            text-shadow: 1px 1px 3px #000;
+            background: rgba(0, 0, 0, 0.6);
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+
+        /* System Info Box mirroring Zone-H Mirror statistics */
+        .system-info-table {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            color: #888;
+            border: 1px solid #333;
+            text-align: left;
+            background: rgba(10, 10, 10, 0.85);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+        }
+
+        .system-info-table th,
+        .system-info-table td {
+            padding: 8px 12px;
+            border: 1px solid #222;
+        }
+
+        .system-info-table th {
+            background: rgba(20, 20, 20, 0.9);
+            color: #ff0000;
+        }
+
+        .system-info-table td.val {
+            color: #fff;
+        }
+
+        .deface-content .greetz {
+            margin-top: 30px;
+            padding: 15px;
+            border-top: 1px solid #333;
+            font-size: 0.95rem;
+            color: #888;
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        .deface-content .greetz span {
+            color: #ff0040;
+            font-weight: bold;
+        }
+
+        /* ============================================
+           SOC RESTORE BANNER
+           ============================================ */
+        .soc-banner {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #22c55e;
+            color: #22c55e;
+            padding: 12px 30px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 0.5s ease;
+            text-align: center;
+        }
+
+        .soc-banner.active {
+            display: block;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        /* ============================================
+           APT TIMELINE INDICATOR
+           ============================================ */
+        .apt-timeline {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #2a2a3a;
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-size: 0.8rem;
+            color: #888;
+            display: none;
+            backdrop-filter: blur(10px);
+            min-width: 180px;
+            text-align: left;
+        }
+
+        .apt-timeline.active {
+            display: block;
+        }
+
+        .apt-timeline .label {
+            color: #666;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .apt-timeline .current-apt {
+            color: #ff0000;
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin: 4px 0;
+        }
+
+        .apt-timeline .countdown {
+            color: #ffd93d;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .apt-timeline .cycle-info {
+            font-size: 0.65rem;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        /* ============================================
+           FOOTER
+           ============================================ */
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #1e1e2e;
+            text-align: center;
+            color: #666;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ============================================
+         ZONE-H REALISTIC DEFACEMENT OVERLAY
+         ============================================ -->
+    <div class="deface-overlay" id="defaceOverlay">
+        <div class="deface-content">
+            <h1>STRIKES AGAIN !</h1>
+
+            <div class="hacker-banner">
+                [ OWNED BY <span id="aptName">HackerGroup</span> ]
+            </div>
+
+            <div class="political-msg" id="politicalMsg">
+                "System vulnerability isn't our fault, it's yours."
+            </div>
+
+            <!-- Zone-H Style Technical Mirror Stats -->
+            <table class="system-info-table">
+                <tr>
+                    <th>Notifier:</th>
+                    <td class="val" id="zoneHNotifier">Zone-H Lab Simulation</td>
+                    <th>System:</th>
+                    <td class="val">Linux Kernel 5.15.0-x86_64</td>
+                </tr>
+                <tr>
+                    <th>Time/Date:</th>
+                    <td class="val" id="aptTimestamp">--:--:--</td>
+                    <th>Web Server:</th>
+                    <td class="val">Apache/2.4.52 (Ubuntu)</td>
+                </tr>
+                <tr>
+                    <th>IP Address:</th>
+                    <td class="val">192.168.42.103</td>
+                    <th>Deface Type:</th>
+                    <td class="val" style="color: #ff0000; font-weight: bold;">Mass Defacement</td>
+                </tr>
+            </table>
+
+            <div class="greetz">
+                Greetz to: <span>packet_storm, local_root, 0day_finder, phrack_mag, and all security researchers.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOC RESTORE BANNER -->
+    <div class="soc-banner" id="socBanner">
+        🛡️ SOC Team Restored Site – All Systems Operational
+    </div>
+
+    <!-- APT TIMELINE -->
+    <div class="apt-timeline" id="aptTimeline">
+        <div class="label">🎯 Active Threat</div>
+        <div class="current-apt" id="currentApt">APT28</div>
+        <div class="label" style="margin-top:8px;">⏳ Next Attack</div>
+        <div class="countdown" id="countdownTimer">30s</div>
+        <div class="cycle-info">Cycle #<span id="cycleCount">0</span></div>
+    </div>
+
+    <!-- ============================================
+         MAIN CONTENT (Visible when restored)
+         ============================================ -->
+    <div class="container" id="mainContainer">
+        <header class="header">
+            <div class="logo">🏎️ Elite<span>Motors</span></div>
+            <div class="stats">
+                <div>
+                    <div class="number" id="inventoryCount">12</div>
+                    <div>Cars Available</div>
+                </div>
+                <div>
+                    <div class="number" id="soldCount">3</div>
+                    <div>Sold Today</div>
+                </div>
+                <div>
+                    <div class="number" id="visitorCount">847</div>
+                    <div>Visitors</div>
+                </div>
+            </div>
+        </header>
+
+        <section class="banner" id="mainBanner">
+            <h1>🔥 <span class="highlight">Exclusive</span> Sports Car Collection</h1>
+            <p>Hand‑picked supercars – <span class="highlight">limited stock</span> – updated in real time</p>
+        </section>
+
+        <div class="car-grid" id="carGrid">
+            <!-- Cars injected by JavaScript -->
+        </div>
+
+        <footer class="footer">
+            <p>© 2026 Elite Motors – Zone-H Defacement Simulation Lab</p>
+        </footer>
+    </div>
+
+    <script>
+        // ============================================
+        //  APT GROUPS - Added background images
+        // ============================================
+        const aptGroups = [
+            {
+                name: 'APT28_FancyBear',
+                politicalMsg: '"Your firewalls cannot parse our intent."',
+                bgImage: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1600&auto=format&fit=crop' // Green Matrix Code
+            },
+            {
+                name: 'G0005_CozyBear',
+                politicalMsg: '"Data exfiltration complete. Good night."',
+                bgImage: 'https://images.unsplash.com/photo-1510511459019-5efa7ae113f8?w=1600&auto=format&fit=crop' // Dark Server/Tech 
+            },
+            {
+                name: 'APT41_Winnti',
+                politicalMsg: '"Supply chains are remarkably fragile."',
+                bgImage: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1600&auto=format&fit=crop' // Cyber Red & Blue
+            },
+            {
+                name: 'Lazarus_Group',
+                politicalMsg: '"Financial infrastructure cleared."',
+                bgImage: 'https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?w=1600&auto=format&fit=crop' // Dark Computer Setups
+            },
+            {
+                name: 'Sandworm_Team',
+                politicalMsg: '"Lights out. BlackEnergy lives."',
+                bgImage: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1600&auto=format&fit=crop' // Dark Industrial Grid
+            }
+        ];
+
+        const cars = [
+            { id: 1, name: 'Ferrari F8 Tributo', model: '2024', basePrice: 275000, price: 275000, engine: 'V8 Twin-Turbo', hp: 710, image: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=600&auto=format&fit=crop', status: 'in-stock' },
+            { id: 2, name: 'Lamborghini Huracán', model: '2025', basePrice: 320000, price: 320000, engine: 'V10', hp: 640, image: 'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=600&auto=format&fit=crop', status: 'in-stock' },
+            { id: 3, name: 'Porsche 911 Turbo S', model: '2024', basePrice: 230000, price: 230000, engine: 'Flat-6 Twin-Turbo', hp: 640, image: 'https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?w=600&auto=format&fit=crop', status: 'pre-order' }
+        ];
+
+        let currentAptIndex = 0;
+        let cycleCount = 0;
+        let isDefaced = false;
+        let countdown = 30;
+        let countdownInterval = null;
+
+        function renderCars(carList) {
+            const grid = document.getElementById('carGrid');
+            grid.innerHTML = '';
+            carList.forEach(car => {
+                const card = document.createElement('div');
+                card.className = 'car-card';
+                card.dataset.id = car.id;
+                card.dataset.basePrice = car.basePrice;
+                card.innerHTML = `
+                    <img src="${car.image}" alt="${car.name}" loading="lazy" />
+                    <div class="car-info">
+                        <h3>${car.name}</h3>
+                        <div class="model">${car.model}</div>
+                        <div class="price-container">
+                            <span class="price">$${car.price.toLocaleString()}</span>
+                            <span class="sale-badge">🔥 SALE</span>
+                        </div>
+                        <div class="specs">
+                            <span>⚡ ${car.engine}</span>
+                            <span>🏎️ ${car.hp} HP</span>
+                        </div>
+                        <div><span class="status ${car.status}">${car.status.toUpperCase()}</span></div>
+                        <div class="updated">🔄 Updated: <span class="timestamp">${new Date().toLocaleTimeString()}</span></div>
+                    </div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        function triggerDefacement(aptIndex) {
+            const apt = aptGroups[aptIndex];
+
+            // Apply data
+            document.getElementById('aptName').textContent = apt.name;
+            document.getElementById('zoneHNotifier').textContent = apt.name + "@zone-h.mirror";
+            document.getElementById('politicalMsg').textContent = apt.politicalMsg;
+            document.getElementById('aptTimestamp').textContent = new Date().toLocaleString();
+            document.getElementById('currentApt').textContent = apt.name;
+            document.getElementById('cycleCount').textContent = cycleCount + 1;
+
+            // Apply background image with dark overlay to keep text readable
+            const overlayElement = document.getElementById('defaceOverlay');
+            overlayElement.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.9)), url('${apt.bgImage}')`;
+
+            // Toggle visibility
+            document.getElementById('mainContainer').classList.add('hidden');
+            overlayElement.classList.add('active');
+            document.getElementById('aptTimeline').classList.add('active');
+            document.getElementById('socBanner').classList.remove('active');
+
+            isDefaced = true;
+        }
+
+        function restoreSite() {
+            document.getElementById('mainContainer').classList.remove('hidden');
+            document.getElementById('defaceOverlay').classList.remove('active');
+            const socBanner = document.getElementById('socBanner');
+            socBanner.classList.add('active');
+            setTimeout(() => socBanner.classList.remove('active'), 5000);
+
+            isDefaced = false;
+        }
+
+        function startSimulation() {
+            renderCars(cars);
+
+            countdownInterval = setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    if (!isDefaced) {
+                        triggerDefacement(currentAptIndex);
+                        countdown = 15; // Hold defacement layout for 15 seconds
+                    } else {
+                        restoreSite();
+                        currentAptIndex = (currentAptIndex + 1) % aptGroups.length;
+                        cycleCount++;
+                        countdown = 30; // 30 seconds of clean status
+                    }
+                }
+                document.getElementById('countdownTimer').textContent = countdown + "s";
+            }, 1000);
+        }
+
+        window.onload = startSimulation;
+    </script>
+</body>
+
+</html>

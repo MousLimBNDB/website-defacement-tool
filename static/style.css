@@ -485,6 +485,30 @@ body {
     font-size: 0.9rem;
 }
 
+.target-rules-badge {
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+    color: #a7f3d0;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    display: inline-block;
+    max-width: 100%;
+    word-break: break-all;
+}
+
+.target-rules-badge.focus {
+    color: #60a5fa;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.target-rules-badge code {
+    font-family: monospace;
+    font-weight: bold;
+}
+
 /* Logs Feed */
 .logs-list {
     padding: 1.5rem;

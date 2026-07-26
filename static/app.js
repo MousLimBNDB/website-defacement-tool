@@ -25,6 +25,19 @@ const elements = {
     formAddTarget: document.getElementById('form-add-target'),
     targetNameInput: document.getElementById('target-name'),
     targetUrlInput: document.getElementById('target-url'),
+    targetIgnoredSelectorsInput: document.getElementById('target-ignored-selectors'),
+    targetSelectorsInput: document.getElementById('target-selectors'),
+
+    // Edit Target Modal
+    editTargetModal: document.getElementById('edit-target-modal'),
+    btnCloseEditTarget: document.getElementById('btn-close-edit-target'),
+    btnCancelEditTarget: document.getElementById('btn-cancel-edit-target'),
+    formEditTarget: document.getElementById('form-edit-target'),
+    editTargetIdInput: document.getElementById('edit-target-id'),
+    editTargetNameInput: document.getElementById('edit-target-name'),
+    editTargetUrlInput: document.getElementById('edit-target-url'),
+    editTargetIgnoredSelectorsInput: document.getElementById('edit-target-ignored-selectors'),
+    editTargetSelectorsInput: document.getElementById('edit-target-selectors'),
 
     // Lists
     targetsList: document.getElementById('targets-list'),
@@ -93,6 +106,11 @@ function setupEventListeners() {
         state.activeFilterTargetId = e.target.value;
         fetchLogs(state.activeFilterTargetId);
     });
+
+    // Edit Target Modal Toggles
+    elements.btnCloseEditTarget.addEventListener('click', closeEditTargetModal);
+    elements.btnCancelEditTarget.addEventListener('click', closeEditTargetModal);
+    elements.formEditTarget.addEventListener('submit', handleSaveTargetEdit);
 
     // Settings Modal Toggles
     elements.btnSettings.addEventListener('click', openSettingsModal);
@@ -247,6 +265,11 @@ function renderTargets() {
             }
         }
 
+        const ignoredBadge = target.ignored_selectors ? 
+            `<div class="target-rules-badge" title="Ignored dynamic elements (clocks/tickers)">🛡️ Ignored: <code>${escapeHTML(target.ignored_selectors)}</code></div>` : '';
+        const sectionBadge = target.target_selectors ? 
+            `<div class="target-rules-badge focus" title="Target section focus">🎯 Focus: <code>${escapeHTML(target.target_selectors)}</code></div>` : '';
+
         return `
             <div class="target-item" data-id="${target.id}">
                 <div class="target-info">
@@ -255,11 +278,16 @@ function renderTargets() {
                         <span class="target-status-badge ${statusClass}">${statusText}</span>
                     </div>
                     <a href="${target.url}" target="_blank" class="target-url">${escapeHTML(target.url)}</a>
+                    ${ignoredBadge}
+                    ${sectionBadge}
                 </div>
                 <div class="target-meta-row">
                     <div class="target-actions">
                         <button class="btn btn-secondary btn-sm btn-toggle-active" onclick="toggleTarget(${target.id}, ${target.is_active})">
                             ${target.is_active ? '⏸️ Pause' : '▶️ Resume'}
+                        </button>
+                        <button class="btn btn-secondary btn-sm btn-edit-rules" title="Configure Ignored Elements" onclick="openEditTargetModal(${target.id})">
+                            ⚙️ Rules
                         </button>
                         <button class="btn btn-secondary btn-sm btn-reset-baseline" title="Reset Baseline Image" onclick="resetBaseline(${target.id})">
                             🔄 Reset Base
@@ -346,6 +374,8 @@ async function handleAddTarget(e) {
     e.preventDefault();
     const name = elements.targetNameInput.value.trim();
     const url = elements.targetUrlInput.value.trim();
+    const ignored_selectors = elements.targetIgnoredSelectorsInput ? elements.targetIgnoredSelectorsInput.value.trim() : '';
+    const target_selectors = elements.targetSelectorsInput ? elements.targetSelectorsInput.value.trim() : '';
 
     if (!name || !url) return;
 
@@ -353,7 +383,7 @@ async function handleAddTarget(e) {
         const response = await fetch('/api/targets', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, url })
+            body: JSON.stringify({ name, url, ignored_selectors, target_selectors })
         });
         
         if (response.ok) {
@@ -423,6 +453,57 @@ async function deleteTarget(id) {
         }
     } catch (err) {
         console.error(err);
+    }
+}
+
+// Edit Target Modal functions
+function openEditTargetModal(id) {
+    if (event) event.stopPropagation();
+    const target = state.targets.find(t => t.id === id);
+    if (!target) return;
+
+    elements.editTargetIdInput.value = target.id;
+    elements.editTargetNameInput.value = target.name || '';
+    elements.editTargetUrlInput.value = target.url || '';
+    elements.editTargetIgnoredSelectorsInput.value = target.ignored_selectors || '';
+    elements.editTargetSelectorsInput.value = target.target_selectors || '';
+
+    elements.editTargetModal.classList.add('active');
+}
+
+function closeEditTargetModal() {
+    elements.editTargetModal.classList.remove('active');
+}
+
+async function handleSaveTargetEdit(e) {
+    e.preventDefault();
+    const id = elements.editTargetIdInput.value;
+    const name = elements.editTargetNameInput.value.trim();
+    const url = elements.editTargetUrlInput.value.trim();
+    const ignored_selectors = elements.editTargetIgnoredSelectorsInput.value.trim();
+    const target_selectors = elements.editTargetSelectorsInput.value.trim();
+
+    if (!id || !name || !url) return;
+
+    try {
+        const response = await fetch(`/api/targets/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, url, ignored_selectors, target_selectors })
+        });
+
+        if (response.ok) {
+            closeEditTargetModal();
+            fetchTargets();
+            fetchLogs();
+            alert('Website monitoring rules updated successfully.');
+        } else {
+            const err = await response.json();
+            alert(`Failed to update target: ${err.detail || 'Unknown error'}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Network error updating website rules.');
     }
 }
 

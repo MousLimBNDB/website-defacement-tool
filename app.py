@@ -39,6 +39,14 @@ logger = logging.getLogger(__name__)
 class TargetCreate(BaseModel):
     url: str
     name: str
+    ignored_selectors: str = ""
+    target_selectors: str = ""
+
+class TargetUpdate(BaseModel):
+    url: str
+    name: str
+    ignored_selectors: str = ""
+    target_selectors: str = ""
 
 class ToggleTarget(BaseModel):
     is_active: bool
@@ -93,14 +101,33 @@ async def add_new_target(target: TargetCreate):
     # Quick URL validation helper
     url = target.url.strip()
     name = target.name.strip()
+    ignored_selectors = target.ignored_selectors.strip()
+    target_selectors = target.target_selectors.strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
         
-    target_id = database.add_target(url, name)
+    target_id = database.add_target(url, name, ignored_selectors, target_selectors)
     if not target_id:
         raise HTTPException(status_code=400, detail="Failed to add target website.")
         
     # Re-sync scheduler jobs to schedule the new target
+    scheduler.sync_scheduler_jobs()
+    return {"status": "success", "id": target_id}
+
+@app.put("/api/targets/{target_id}")
+async def update_existing_target(target_id: int, request: TargetUpdate):
+    target = database.get_target(target_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Target not found.")
+        
+    url = request.url.strip()
+    name = request.name.strip()
+    ignored_selectors = request.ignored_selectors.strip()
+    target_selectors = request.target_selectors.strip()
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+        
+    database.update_target(target_id, url, name, ignored_selectors, target_selectors)
     scheduler.sync_scheduler_jobs()
     return {"status": "success", "id": target_id}
 

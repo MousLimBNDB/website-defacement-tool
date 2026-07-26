@@ -89,6 +89,16 @@
                             <label for="target-url">Website URL</label>
                             <input type="url" id="target-url" placeholder="https://example.com" required autocomplete="off">
                         </div>
+                        <div class="form-group">
+                            <label for="target-ignored-selectors">Ignored Dynamic Elements (False Positive Prevention)</label>
+                            <input type="text" id="target-ignored-selectors" placeholder="e.g. .clock, #live-timer, .ticker, .counter-div" autocomplete="off">
+                            <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">Comma-separated CSS selectors (e.g. live clocks, timers, dynamic tickers) to hide/mask during comparison.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="target-selectors">Target Section Fragment (Optional Focus)</label>
+                            <input type="text" id="target-selectors" placeholder="e.g. #main-content, main, article" autocomplete="off">
+                            <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">CSS selector of specific page section/div to monitor exclusively.</small>
+                        </div>
                         <div class="form-actions">
                             <button type="button" id="btn-cancel-add" class="btn btn-text">Cancel</button>
                             <button type="submit" class="btn btn-primary">Start Monitoring</button>
@@ -273,6 +283,41 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal: Edit Target Configurations -->
+    <div id="edit-target-modal" class="modal-overlay">
+        <div class="modal-content glassmorphism">
+            <div class="modal-header">
+                <h2>Configure Website Monitoring Rules</h2>
+                <button class="modal-close" id="btn-close-edit-target">×</button>
+            </div>
+            <form id="form-edit-target" class="modal-form">
+                <input type="hidden" id="edit-target-id">
+                <div class="form-group">
+                    <label for="edit-target-name">Website Name</label>
+                    <input type="text" id="edit-target-name" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="edit-target-url">Website URL</label>
+                    <input type="url" id="edit-target-url" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="edit-target-ignored-selectors">Ignored Dynamic Elements (CSS Selectors)</label>
+                    <input type="text" id="edit-target-ignored-selectors" placeholder="e.g. .clock, #live-timer, .ticker, .timestamp" autocomplete="off">
+                    <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">Hide/mask dynamic elements (like clocks or live counters) before screenshotting to avoid false positives.</small>
+                </div>
+                <div class="form-group">
+                    <label for="edit-target-selectors">Target Section Fragment Selector</label>
+                    <input type="text" id="edit-target-selectors" placeholder="e.g. #main-content, main, article" autocomplete="off">
+                    <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">Crop/monitor a specific section/div selector instead of full page.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-edit-target">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Rules</button>
+                </div>
+            </form>
         </div>
     </div>
 
