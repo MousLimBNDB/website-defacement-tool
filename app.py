@@ -64,6 +64,24 @@ class SettingsUpdate(BaseModel):
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2-vision"
 
+def start_mock_server_if_needed():
+    if os.path.exists("mock_demo_site"):
+        import socketserver, http.server, threading
+        PORT = 8899
+        class MockHTTPHandler(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass
+        def bind_handler(*args, **kwargs):
+            return MockHTTPHandler(*args, directory="mock_demo_site", **kwargs)
+        try:
+            socketserver.ThreadingTCPServer.allow_reuse_address = True
+            httpd = socketserver.ThreadingTCPServer(("127.0.0.1", PORT), bind_handler)
+            t = threading.Thread(target=httpd.serve_forever, daemon=True)
+            t.start()
+            logger.info(f"Mock target web server running on http://127.0.0.1:{PORT}")
+        except Exception as e:
+            logger.warning(f"Could not start mock server on port {PORT}: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup actions
@@ -73,6 +91,9 @@ async def lifespan(app: FastAPI):
     # Ensure static directories exist
     os.makedirs("static/screenshots", exist_ok=True)
     
+    # Start mock server for local demo targets
+    start_mock_server_if_needed()
+
     # Start APScheduler background jobs
     scheduler.start_scheduler()
     yield
