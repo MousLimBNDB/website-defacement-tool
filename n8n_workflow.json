@@ -1,0 +1,237 @@
+{
+  "name": "Website Defacement Detection & Integrity Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "node-interval-trigger",
+      "name": "Interval Trigger (APScheduler / Cron)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\node_targets.py\""
+      },
+      "id": "node-target-provider",
+      "name": "Node 1: Target URLs Provider",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "node-split-batches",
+      "name": "Split Targets in Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\screenshot_engine.py\" --url \"{{ $json.url }}\" --target-id {{ $json.id }} --ignored-selectors \"{{ $json.ignored_selectors }}\" --target-selectors \"{{ $json.target_selectors }}\""
+      },
+      "id": "node-screenshot-engine",
+      "name": "Node 3: Playwright Screenshot Engine",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\image_comparator.py\" --baseline \"{{ $json.baseline_path }}\" --current \"{{ $json.current_path }}\" --diff-output \"{{ $json.current_path.replace('current_', 'diff_') }}\""
+      },
+      "id": "node-image-comparator",
+      "name": "Node 4: Image Comparator (Canvas Expansion)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-similarity",
+              "leftValue": "={{ $json.similarity_score }}",
+              "rightValue": 0.98,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-similarity-check",
+      "name": "Node 5: Similarity Score Check (< 0.98)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1380,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\ollama_analyzer.py\" --baseline \"{{ $('Node 3: Playwright Screenshot Engine').item.json.baseline_path }}\" --current \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}\" --diff \"{{ $json.diff_path }}\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}\" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id }} --url \"{{ $('Node 3: Playwright Screenshot Engine').item.json.url }}\""
+      },
+      "id": "node-ollama-analyzer",
+      "name": "Node 6: Multimodal AI Engine (Ollama Qwen3:4B)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1640,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\node_alert.py\" --target-id {{ $json.target_id }} --url \"{{ $json.url }}\" --change-type \"{{ $json.change_type }}\" --confidence {{ $json.confidence }} --summary \"{{ $json.analysis_summary }}\" --similarity {{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.similarity_score }} --screenshot \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}\" --diff \"{{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.diff_path }}\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}\""
+      },
+      "id": "node-incident-alert",
+      "name": "Node 7: Incident Alerting Engine (Webhook + DB)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\node_logger.py\" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id }} --url \"{{ $('Node 3: Playwright Screenshot Engine').item.json.url }}\" --similarity {{ $json.similarity_score }} --screenshot \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}\" --diff \"\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}\""
+      },
+      "id": "node-logger-normal",
+      "name": "Node 8: Log Normal Event (PostgreSQL)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1640,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Interval Trigger (APScheduler / Cron)": {
+      "main": [
+        [
+          {
+            "node": "Node 1: Target URLs Provider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 1: Target URLs Provider": {
+      "main": [
+        [
+          {
+            "node": "Split Targets in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Targets in Batches": {
+      "main": [
+        [
+          {
+            "node": "Node 3: Playwright Screenshot Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 3: Playwright Screenshot Engine": {
+      "main": [
+        [
+          {
+            "node": "Node 4: Image Comparator (Canvas Expansion)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 4: Image Comparator (Canvas Expansion)": {
+      "main": [
+        [
+          {
+            "node": "Node 5: Similarity Score Check (< 0.98)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 5: Similarity Score Check (< 0.98)": {
+      "main": [
+        [
+          {
+            "node": "Node 6: Multimodal AI Engine (Ollama Qwen3:4B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Node 8: Log Normal Event (PostgreSQL)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 6: Multimodal AI Engine (Ollama Qwen3:4B)": {
+      "main": [
+        [
+          {
+            "node": "Node 7: Incident Alerting Engine (Webhook + DB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

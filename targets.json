@@ -1,0 +1,146 @@
+[
+  {
+    "id": 1,
+    "name": "i10x AI",
+    "url": "https://i10x.ai/?fpr=thao53&gad_source=1&gad_campaignid=24047206317&gbraid=0AAAABDfEZ7Z8eBzxBDYwMr07xNp139pbN&gclid=Cj0KCQjwkOvTBhDgARIsAKUNyRtKS6TGRz7bg59tUXOQ1y_PiBiPp8vZinl6qgIoyCdDGPT7Lb1T9_UaAufOEALw_wcB",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 2,
+    "name": "Fikesite Boom",
+    "url": "https://www.fikesiteboom.com/",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 3,
+    "name": "Alibaba",
+    "url": "https://www.alibaba.com",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 4,
+    "name": "AliExpress",
+    "url": "https://www.aliexpress.com",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 5,
+    "name": "YouTube",
+    "url": "https://www.youtube.com",
+    "is_active": true,
+    "ignored_selectors": "ytd-rich-grid-row",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 6,
+    "name": "Vimm's Lair",
+    "url": "https://vimm.net/",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 7,
+    "name": "Playwright Python Documentation",
+    "url": "https://playwright.dev/python/",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 8,
+    "name": "CERIST Algeria",
+    "url": "https://www.cerist.dz/index.php/fr/index.html",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 9,
+    "name": "Amazon France",
+    "url": "https://www.amazon.fr/",
+    "is_active": true,
+    "ignored_selectors": "#nav-swmslot, #desktop-banner",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 10,
+    "name": "Cisco Networking Academy",
+    "url": "https://www.netacad.com/",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 11,
+    "name": "Pinterest",
+    "url": "https://pinterest.com/",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 12,
+    "name": "Hacker News",
+    "url": "https://news.ycombinator.com",
+    "is_active": true,
+    "ignored_selectors": ".age, .subline",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 13,
+    "name": "GitHub",
+    "url": "https://github.com/",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 14,
+    "name": "Reddit",
+    "url": "https://www.reddit.com/",
+    "is_active": true,
+    "ignored_selectors": "shreddit-feed",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 15,
+    "name": "SOAR Kentucky",
+    "url": "https://soar-ky.org/",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  },
+  {
+    "id": 16,
+    "name": "LeetCode",
+    "url": "https://leetcode.com/",
+    "is_active": true,
+    "ignored_selectors": "",
+    "target_selectors": "",
+    "check_interval_mins": 5
+  }
+]

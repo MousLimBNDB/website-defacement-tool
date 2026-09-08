@@ -1,276 +1,227 @@
 import os
+import sys
+import json
 import logging
 import asyncio
+import argparse
 from datetime import datetime
-import json
-import urllib.request
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-# pyrefly: ignore [missing-import]
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+import config
 import database
+import node_targets
 import screenshot_engine
 import image_comparator
-import ai_analyzer
+import node_similarity_check
+import ollama_analyzer
+import node_alert
+import node_logger
 
 logger = logging.getLogger(__name__)
 
-# Global scheduler instance
+# Global APScheduler instance
 scheduler = AsyncIOScheduler()
 
-async def run_check_for_target(target_id: int):
+async def execute_monitoring_pipeline_for_target(target: dict) -> dict:
     """
-    Performs a full monitoring check on a single target website.
-    This includes capturing, comparing, analyzing via LLM (if needed), and alerting.
+    Executes the full end-to-end defacement monitoring pipeline for a single target.
+    This exactly mirrors the n8n node flow.
     """
-    target = database.get_target(target_id)
-    if not target or not target['is_active']:
-        logger.info(f"Target ID {target_id} not found or inactive. Skipping.")
-        return
-        
-    url = target['url']
-    name = target['name']
-    logger.info(f"Running monitoring check for {name} ({url})")
-    
-    # Establish folders
-    target_dir = f"screenshots/{target_id}"
-    os.makedirs(target_dir, exist_ok=True)
-    
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    baseline_path = f"{target_dir}/baseline.png"
-    current_path = f"{target_dir}/current_{timestamp}.png"
-    diff_path = f"{target_dir}/diff_{timestamp}.png"
-    
-    # Relative paths for database storage and dashboard serving
-    rel_current_path = f"static/screenshots/{target_id}/current_{timestamp}.png"
-    rel_diff_path = f"static/screenshots/{target_id}/diff_{timestamp}.png"
-    
-    # 1. Capture the current screenshot
-    # Note: FastAPI static serving will link from static/screenshots to local screenshots directory
-    # So we'll save screenshots directly to a path that is accessible.
-    # Let's save them under static/screenshots so FastAPI can serve them static-file-wise.
-    static_target_dir = f"static/screenshots/{target_id}"
-    os.makedirs(static_target_dir, exist_ok=True)
-    
-    baseline_path = f"{static_target_dir}/baseline.png"
-    current_path = f"{static_target_dir}/current_{timestamp}.png"
-    diff_path = f"{static_target_dir}/diff_{timestamp}.png"
-    
-    # Database relative paths for web rendering
-    db_screenshot_path = f"/static/screenshots/{target_id}/current_{timestamp}.png"
-    db_diff_path = f"/static/screenshots/{target_id}/diff_{timestamp}.png"
-    
-    ignored_selectors = target.get('ignored_selectors', '') or ''
-    target_selectors = target.get('target_selectors', '') or ''
-    
-    success = await screenshot_engine.capture_screenshot(
-        url=url, 
-        output_path=current_path, 
-        ignored_selectors=ignored_selectors, 
+    target_id = target.get("id", 1)
+    url = target.get("url")
+    name = target.get("name", url)
+    ignored_selectors = target.get("ignored_selectors", "")
+    target_selectors = target.get("target_selectors", "")
+
+    logger.info(f"===> [Target {target_id}: {name}] Starting monitoring check for {url}")
+
+    # Node 3: Playwright Screenshot Engine
+    capture_res = await screenshot_engine.capture_website(
+        url=url,
+        target_id=target_id,
+        ignored_selectors=ignored_selectors,
         target_selectors=target_selectors
     )
-    if not success:
-        database.add_log(
-            target_id=target_id,
-            similarity_score=0.0,
-            is_defaced=0,
-            confidence=0,
-            change_type="Error",
-            analysis_summary="Failed to capture screenshot. The website might be offline or blocked.",
-            screenshot_path="",
-            diff_path="",
-            status="FAILED",
-            error_message="Playwright browser failed to capture page screenshot."
-        )
-        # Trigger an alert if the site is completely unreachable
-        trigger_unreachable_alert(name, url)
-        return
-        
-    # 2. Check if baseline exists. If not, set current as baseline and exit.
-    if not os.path.exists(baseline_path):
-        import shutil
-        shutil.copy(current_path, baseline_path)
-        logger.info(f"No baseline found for {name}. Setting current capture as baseline.")
-        database.add_log(
-            target_id=target_id,
-            similarity_score=1.0,
-            is_defaced=0,
-            confidence=0,
-            change_type="Baseline Created",
-            analysis_summary="Baseline screenshot established. Future checks will be compared against this.",
-            screenshot_path=f"/static/screenshots/{target_id}/baseline.png",
-            diff_path="",
-            status="SUCCESS"
-        )
-        return
 
-    # 3. Compare current screenshot against baseline
-    settings = database.get_settings()
-    threshold = float(settings.get("similarity_threshold", 0.98))
+    if not capture_res.get("success"):
+        error_msg = capture_res.get("error", "Failed to capture screenshot")
+        logger.error(f"[Target {target_id}] Capture failed: {error_msg}")
+        database.add_log(
+            target_id=target_id,
+            url=url,
+            similarity_score=0.0,
+            is_defaced=False,
+            confidence=0,
+            change_type="Connection/Capture Error",
+            analysis_summary=f"Playwright screenshot capture failed: {error_msg}",
+            status="FAILED",
+            error_message=error_msg
+        )
+        return {"status": "FAILED", "error": error_msg}
+
+    current_path = capture_res["current_path"]
+    baseline_path = capture_res["baseline_path"]
+    popup_path = capture_res.get("popup_path", "")
+    timestamp = capture_res["timestamp"]
+
+    # If baseline was just created, log baseline event and finish
+    if capture_res.get("is_baseline_created"):
+        logger.info(f"[Target {target_id}] Baseline image initialized. Logging event.")
+        node_logger.log_normal_event(
+            target_id=target_id,
+            url=url,
+            similarity_score=1.0,
+            screenshot_path=current_path,
+            popup_path=popup_path,
+            is_baseline=True
+        )
+        return {"status": "BASELINE_INITIALIZED", "target_id": target_id}
+
+    # Node 4: Pillow Image Comparator (Canvas Expansion)
+    diff_dir = config.SCREENSHOTS_DIR / str(target_id)
+    diff_path = str(diff_dir / f"diff_{timestamp}.png")
     
-    similarity = image_comparator.compare_screenshots(baseline_path, current_path, diff_path)
-    
-    # 4. Determine if we need to call the LLM
-    is_defaced = 0
-    confidence = 0
-    change_type = "No Change"
-    analysis_summary = f"No meaningful visual changes detected. Similarity score: {similarity:.4f}"
-    
-    # If similarity is below the threshold, invoke AI visual analysis
-    if similarity < threshold:
-        logger.info(f"Similarity score {similarity:.4f} is below threshold {threshold}. Querying AI provider...")
-        analysis = ai_analyzer.analyze_defacement(baseline_path, current_path, diff_path)
-        
-        is_defaced = 1 if analysis.get("is_defaced") else 0
-        confidence = analysis.get("confidence", 0)
-        change_type = analysis.get("change_type", "Unknown")
-        analysis_summary = analysis.get("analysis_summary", "")
-        
-        # 5. Trigger alerting if Gemini confirms defacement
-        if is_defaced:
-            trigger_defacement_alert(name, url, change_type, confidence, analysis_summary)
-    else:
-        logger.info(f"Similarity score {similarity:.4f} is above threshold {threshold}. Skipping LLM.")
-        
-    # 6. Save log details to DB
-    database.add_log(
+    comp_res = image_comparator.compare_screenshots(
+        baseline_path=baseline_path,
+        current_path=current_path,
+        diff_path=diff_path,
+        threshold=config.PIXEL_DIFF_THRESHOLD
+    )
+    similarity = comp_res.get("similarity_score", 0.0)
+
+    # Node 5: Similarity Score Check & Threshold Router
+    route_info = node_similarity_check.check_similarity(
+        similarity=similarity,
+        threshold=config.SIMILARITY_THRESHOLD,
         target_id=target_id,
-        similarity_score=similarity,
-        is_defaced=is_defaced,
-        confidence=confidence,
-        change_type=change_type,
-        analysis_summary=analysis_summary,
-        screenshot_path=db_screenshot_path,
-        diff_path=db_diff_path if similarity < threshold else "",
-        status="SUCCESS"
+        url=url,
+        baseline_path=baseline_path,
+        current_path=current_path,
+        diff_path=diff_path,
+        popup_path=popup_path
     )
 
-def trigger_defacement_alert(target_name: str, url: str, change_type: str, confidence: int, summary: str):
-    logger.warning(f"🚨 DEFACEMENT DETECTED for {target_name} ({url})! Confidence: {confidence}%. Type: {change_type}")
-    
-    settings = database.get_settings()
-    webhook_url = settings.get("webhook_url")
-    email_to = settings.get("alert_email_to")
-    
-    # Send Discord / Slack Webhook alert
-    if webhook_url:
-        try:
-            payload = {
-                "content": f"🚨 **Website Defacement Alert!** 🚨\n**Site**: {target_name} ({url})\n**Change Type**: {change_type}\n**AI Confidence**: {confidence}%\n**Summary**: {summary}"
-            }
-            req = urllib.request.Request(
-                webhook_url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json', 'User-Agent': 'DefacementWatcher'}
-            )
-            with urllib.request.urlopen(req) as response:
-                logger.info("Alert webhook sent successfully.")
-        except Exception as e:
-            logger.error(f"Failed to send webhook alert: {e}")
-
-    # Send Email alert
-    if email_to:
-        send_email_alert(
-            to_email=email_to,
-            subject=f"🚨 DEFACEMENT ALERT: {target_name}",
-            body=f"Website defacement warning for {target_name} ({url})\n\nDetails:\n- Classification: {change_type}\n- AI Confidence: {confidence}%\n- Summary: {summary}\n\nPlease check your monitoring dashboard immediately."
+    # Branching logic
+    if route_info["is_below_threshold"]:
+        logger.warning(
+            f"[Target {target_id}] Similarity {similarity:.4f} < Threshold {config.SIMILARITY_THRESHOLD}. "
+            "Routing to Ollama Multimodal AI Engine..."
+        )
+        
+        # Node 6: Multimodal AI Engine (Ollama Qwen3:4B on VM)
+        ai_res = ollama_analyzer.analyze_defacement(
+            baseline_path=baseline_path,
+            current_path=current_path,
+            diff_path=diff_path,
+            popup_path=popup_path,
+            target_id=target_id,
+            url=url
         )
 
-def trigger_unreachable_alert(target_name: str, url: str):
-    logger.warning(f"⚠️ Website unreachable alert: {target_name} ({url})")
-    settings = database.get_settings()
-    webhook_url = settings.get("webhook_url")
-    email_to = settings.get("alert_email_to")
-    
-    if webhook_url:
-        try:
-            payload = {
-                "content": f"⚠️ **Website Unreachable Alert!** ⚠️\n**Site**: {target_name} ({url})\nFailed to capture screenshot. The site might be offline."
-            }
-            req = urllib.request.Request(
-                webhook_url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json', 'User-Agent': 'DefacementWatcher'}
+        is_defaced = ai_res.get("is_defaced", False)
+        popup_defaced = ai_res.get("popup_defaced", False)
+        confidence = ai_res.get("confidence", 0)
+        change_type = ai_res.get("change_type", "Unknown")
+        summary = ai_res.get("analysis_summary", "")
+
+        if is_defaced or popup_defaced:
+            # Node 7: Incident Alerting Engine (Webhook + DB)
+            logger.critical(f"🚨 DEFACEMENT CONFIRMED for {url}! Triggering alerts...")
+            alert_res = node_alert.trigger_alert(
+                target_id=target_id,
+                url=url,
+                change_type=change_type,
+                confidence=confidence,
+                summary=summary,
+                similarity_score=similarity,
+                screenshot_path=current_path,
+                diff_path=diff_path,
+                popup_path=popup_path
             )
-            with urllib.request.urlopen(req) as response:
-                pass
-        except Exception as e:
-            logger.error(f"Failed to send webhook unreachable alert: {e}")
-
-    if email_to:
-        send_email_alert(
-            to_email=email_to,
-            subject=f"⚠️ UNREACHABLE ALERT: {target_name}",
-            body=f"Failed to connect to and screenshot website: {target_name} ({url}). The site might be down."
+            return {"status": "DEFACEMENT_ALERTED", "alert": alert_res}
+        else:
+            logger.info(f"[Target {target_id}] AI determined change is benign: {change_type}")
+            node_logger.log_normal_event(
+                target_id=target_id,
+                url=url,
+                similarity_score=similarity,
+                screenshot_path=current_path,
+                diff_path=diff_path,
+                popup_path=popup_path,
+                is_baseline=False
+            )
+            return {"status": "BENIGN_CHANGE_LOGGED", "change_type": change_type}
+    else:
+        # Node 8: Log Normal Event
+        logger.info(f"[Target {target_id}] Similarity {similarity:.4f} >= Threshold. Visual integrity intact.")
+        node_logger.log_normal_event(
+            target_id=target_id,
+            url=url,
+            similarity_score=similarity,
+            screenshot_path=current_path,
+            diff_path="",
+            popup_path=popup_path,
+            is_baseline=False
         )
+        return {"status": "NORMAL_LOGGED", "similarity": similarity}
 
-def send_email_alert(to_email: str, subject: str, body: str):
-    settings = database.get_settings()
-    smtp_host = settings.get("smtp_host")
-    smtp_port = int(settings.get("smtp_port", 587))
-    smtp_user = settings.get("smtp_user")
-    smtp_pass = settings.get("smtp_password")
-    
-    if not smtp_host or not smtp_user or not smtp_pass:
-        logger.info("SMTP configuration incomplete. Email alert skipped.")
-        return
-        
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = smtp_user
-        msg['To'] = to_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP(smtp_host, smtp_port)
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, to_email, msg.as_string())
-        server.quit()
-        logger.info("Alert email sent successfully.")
-    except Exception as e:
-        logger.error(f"Failed to send email alert: {e}")
-
-# Scheduler orchestration
-def start_scheduler():
-    if not scheduler.running:
-        scheduler.start()
-        logger.info("Scheduler started successfully.")
-        sync_scheduler_jobs()
-
-def stop_scheduler():
-    if scheduler.running:
-        scheduler.shutdown()
-        logger.info("Scheduler stopped.")
-
-def sync_scheduler_jobs():
-    """Reads active targets from DB and schedules them at the configured interval."""
-    # Remove existing jobs
-    scheduler.remove_all_jobs()
-    
-    settings = database.get_settings()
-    interval_mins = int(settings.get("check_interval_mins", 5))
-    
-    targets = database.get_targets()
-    active_count = 0
-    now = datetime.now()
+async def run_all_targets_once():
+    """Runs one monitoring iteration across all active targets."""
+    targets = node_targets.get_targets(active_only=True)
+    logger.info(f"Running monitoring iteration for {len(targets)} active targets...")
     for target in targets:
-        if target['is_active']:
-            # Run first check immediately, then check every N minutes
-            job_id = f"check_{target['id']}"
-            scheduler.add_job(
-                func=run_check_for_target,
-                args=[target['id']],
-                trigger="interval",
-                minutes=interval_mins,
-                id=job_id,
-                replace_existing=True,
-                next_run_time=now
-            )
-            active_count += 1
-            logger.info(f"Scheduled check job for {target['name']} every {interval_mins} minutes.")
-            
-    logger.info(f"Synchronized scheduler jobs. Active targets monitoring: {active_count}")
+        try:
+            await execute_monitoring_pipeline_for_target(target)
+        except Exception as e:
+            logger.error(f"Error checking target {target.get('id')}: {e}", exc_info=True)
+
+def start_continuous_scheduler():
+    """Starts APScheduler with interval triggers for continuous background execution."""
+    database.init_db()
+    targets = node_targets.get_targets(active_only=True)
+    
+    for target in targets:
+        t_id = target.get("id")
+        mins = target.get("check_interval_mins", 5)
+        job_id = f"job_target_{t_id}"
+        scheduler.add_job(
+            func=execute_monitoring_pipeline_for_target,
+            args=[target],
+            trigger="interval",
+            minutes=mins,
+            id=job_id,
+            replace_existing=True,
+            next_run_time=datetime.now()
+        )
+        logger.info(f"Scheduled monitoring job for Target {t_id} ({target.get('name')}) every {mins} mins.")
+
+    scheduler.start()
+    logger.info("APScheduler interval runner is active.")
+
+def main():
+    parser = argparse.ArgumentParser(description="Node 2: APScheduler Pipeline Runner")
+    parser.add_argument("--run-once", action="store_true", help="Execute single check across active targets and exit")
+    parser.add_argument("--target-id", type=int, default=None, help="Check only specific target ID")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    database.init_db()
+
+    if args.target_id:
+        targets = node_targets.get_targets(target_id=args.target_id)
+        if not targets:
+            print(f"Target ID {args.target_id} not found.")
+            return
+        asyncio.run(execute_monitoring_pipeline_for_target(targets[0]))
+    elif args.run_once:
+        asyncio.run(run_all_targets_once())
+    else:
+        start_continuous_scheduler()
+        try:
+            asyncio.get_event_loop().run_forever()
+        except (KeyboardInterrupt, SystemExit):
+            scheduler.shutdown()
+            logger.info("Scheduler stopped.")
+
+if __name__ == "__main__":
+    main()
