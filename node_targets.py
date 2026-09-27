@@ -21,7 +21,24 @@ def get_targets(target_id: int = None, active_only: bool = True):
         return []
 
     with open(targets_path, "r", encoding="utf-8") as f:
-        targets = json.load(f)
+        raw_targets = json.load(f)
+
+    normalized_targets = []
+    for t in raw_targets:
+        if not isinstance(t, dict):
+            continue
+        target_obj = {
+            "id": int(t.get("id", 1)),
+            "name": str(t.get("name", "")),
+            "url": str(t.get("url", "")),
+            "is_active": bool(t.get("is_active", True)),
+            "ignored_selectors": str(t.get("ignored_selectors") or ""),
+            "target_selectors": str(t.get("target_selectors") or ""),
+            "check_interval_mins": int(t.get("check_interval_mins", 5))
+        }
+        normalized_targets.append(target_obj)
+
+    targets = normalized_targets
 
     if active_only:
         targets = [t for t in targets if t.get("is_active", True)]

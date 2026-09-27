@@ -365,19 +365,25 @@ async def capture_website(
 def main():
     parser = argparse.ArgumentParser(description="Node 3: Playwright Screenshot Engine for n8n")
     parser.add_argument("--url", required=True, help="Target website URL")
-    parser.add_argument("--target-id", type=int, default=1, help="Target ID")
+    parser.add_argument("--target-id", default=1, help="Target ID")
     parser.add_argument("--output", default=None, help="Output current screenshot file path")
     parser.add_argument("--ignored-selectors", default="", help="Comma-separated CSS selectors to mask")
     parser.add_argument("--target-selectors", default="", help="Specific CSS selector to crop")
     args = parser.parse_args()
 
+    # Safely convert target_id to integer
+    try:
+        target_id_val = int(args.target_id) if args.target_id is not None and str(args.target_id).strip() != "" else 1
+    except (ValueError, TypeError):
+        target_id_val = 1
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     res = asyncio.run(capture_website(
         url=args.url,
-        target_id=args.target_id,
+        target_id=target_id_val,
         output_path=args.output,
-        ignored_selectors=args.ignored_selectors,
-        target_selectors=args.target_selectors
+        ignored_selectors=args.ignored_selectors or "",
+        target_selectors=args.target_selectors or ""
     ))
     # Emit JSON result for n8n pipeline
     print(json.dumps(res, indent=2))

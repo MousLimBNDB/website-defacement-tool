@@ -40,8 +40,8 @@ flowchart TD
 | Node ID | Node Name | Executable File / Type | Inputs | Outputs | Next Connected Node |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Trigger** | Interval Trigger | `n8n-nodes-base.scheduleTrigger` | Cron / 5-min interval | Trigger pulse | Node 1: Target URLs Provider |
-| **Node 1** | Target URLs Provider | `node_targets.py` | `targets.json` | Array of target JSON objects `[ { id, url, name, ... } ]` | Split Targets in Batches |
-| **Batch** | Split Targets in Batches | `n8n-nodes-base.splitInBatches` | Array of targets | Single target item per iteration | Node 3: Playwright Screenshot Engine |
+| **Node 1** | Target URLs Provider | `node_targets.py` | `targets.json` | JSON string of target objects in `$json.stdout` | Split Targets in Batches |
+| **Batch** | Split Targets in Batches | `n8n-nodes-base.code` | `$json.stdout` string | Array of individual target items `[ { json: target } ]` | Node 3: Playwright Screenshot Engine |
 | **Node 3** | Playwright Screenshot Engine | `screenshot_engine.py` | Target URL, ID, ignored selectors | `current_path`, `baseline_path`, `popup_path`, `is_baseline_created` | Node 4: Image Comparator |
 | **Node 4** | Image Comparator | `image_comparator.py` | `baseline_path`, `current_path` | `similarity_score`, `changed_pixels`, `diff_path`, `canvas_expanded` | Node 5: Similarity Score Check |
 | **Node 5** | Similarity Score Check | `n8n-nodes-base.if` | `similarity_score` | Boolean branch (True: `< 0.98`, False: `>= 0.98`) | **True** ➔ Node 6 (AI Engine)<br>**False** ➔ Node 8 (Log Normal) |
@@ -66,35 +66,49 @@ flowchart TD
 7. Click **Save** and toggle the workflow to **Active**.
 
 ### Option B: Node-by-Node Execution Commands
-In n8n, each node is an `Execute Command` node configured as follows:
+In n8n, each node is configured as follows:
 
-- **Node 1 (Target Provider)**:
+- **Node 1 (Target Provider)** (`n8n-nodes-base.executeCommand`):
   ```bash
   python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\node_targets.py"
   ```
-- **Node 3 (Screenshot Engine)**:
-  ```bash
-  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\screenshot_engine.py" --url "{{ $json.url }}" --target-id {{ $json.id }} --ignored-selectors "{{ $json.ignored_selectors }}" --target-selectors "{{ $json.target_selectors }}"
+- **Split Targets in Batches** (`n8n-nodes-base.code` JavaScript Code Node):
+  ```javascript
+  const rawStdout = $input.first().json.stdout || '[]';
+  let targets = [];
+  try {
+    targets = typeof rawStdout === 'string' ? JSON.parse(rawStdout) : rawStdout;
+  } catch (e) {
+    targets = [];
+  }
+  if (!Array.isArray(targets)) {
+    targets = [targets];
+  }
+  return targets.map(target => ({ json: target }));
   ```
-- **Node 4 (Image Comparator)**:
+- **Node 3 (Screenshot Engine)** (`n8n-nodes-base.executeCommand`):
   ```bash
-  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\image_comparator.py" --baseline "{{ $json.baseline_path }}" --current "{{ $json.current_path }}" --diff-output "{{ $json.current_path.replace('current_', 'diff_') }}"
+  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\screenshot_engine.py" --url "{{ $json.url }}" --target-id {{ $json.id || 1 }} --ignored-selectors "{{ $json.ignored_selectors || '' }}" --target-selectors "{{ $json.target_selectors || '' }}"
   ```
-- **Node 5 (IF Condition)**:
-  - Value 1: `{{ $json.similarity_score }}`
+- **Node 4 (Image Comparator)** (`n8n-nodes-base.executeCommand`):
+  ```bash
+  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\image_comparator.py" --baseline "{{ $json.baseline_path || JSON.parse($json.stdout).baseline_path }}" --current "{{ $json.current_path || JSON.parse($json.stdout).current_path }}" --diff-output "{{ ($json.current_path || JSON.parse($json.stdout).current_path).replace('current_', 'diff_') }}"
+  ```
+- **Node 5 (IF Condition)** (`n8n-nodes-base.if`):
+  - Value 1: `={{ $json.similarity_score !== undefined ? $json.similarity_score : JSON.parse($json.stdout).similarity_score }}`
   - Operation: `Smaller than`
   - Value 2: `0.98`
-- **Node 6 (Multimodal AI Engine)**:
+- **Node 6 (Multimodal AI Engine)** (`n8n-nodes-base.executeCommand`):
   ```bash
-  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\ollama_analyzer.py" --baseline "{{ $('Node 3: Playwright Screenshot Engine').item.json.baseline_path }}" --current "{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}" --diff "{{ $json.diff_path }}" --popup "{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id }} --url "{{ $('Node 3: Playwright Screenshot Engine').item.json.url }}"
+  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\ollama_analyzer.py" --baseline "{{ $('Node 3: Playwright Screenshot Engine').item.json.baseline_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).baseline_path }}" --current "{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).current_path }}" --diff "{{ $json.diff_path || JSON.parse($json.stdout).diff_path }}" --popup "{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).popup_path }}" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).target_id }} --url "{{ $('Node 3: Playwright Screenshot Engine').item.json.url || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).url }}"
   ```
-- **Node 7 (Incident Alerting)**:
+- **Node 7 (Incident Alerting)** (`n8n-nodes-base.executeCommand`):
   ```bash
-  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\node_alert.py" --target-id {{ $json.target_id }} --url "{{ $json.url }}" --change-type "{{ $json.change_type }}" --confidence {{ $json.confidence }} --summary "{{ $json.analysis_summary }}" --similarity {{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.similarity_score }} --screenshot "{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}" --diff "{{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.diff_path }}" --popup "{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}"
+  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\node_alert.py" --target-id {{ $json.target_id || JSON.parse($json.stdout).target_id }} --url "{{ $json.url || JSON.parse($json.stdout).url }}" --change-type "{{ $json.change_type || JSON.parse($json.stdout).change_type }}" --confidence {{ $json.confidence || JSON.parse($json.stdout).confidence }} --summary "{{ $json.analysis_summary || JSON.parse($json.stdout).analysis_summary }}" --similarity {{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.similarity_score || JSON.parse($('Node 4: Image Comparator (Canvas Expansion)').item.json.stdout).similarity_score }} --screenshot "{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).current_path }}" --diff "{{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.diff_path || JSON.parse($('Node 4: Image Comparator (Canvas Expansion)').item.json.stdout).diff_path }}" --popup "{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).popup_path }}"
   ```
-- **Node 8 (Log Normal Event)**:
+- **Node 8 (Log Normal Event)** (`n8n-nodes-base.executeCommand`):
   ```bash
-  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\node_logger.py" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id }} --url "{{ $('Node 3: Playwright Screenshot Engine').item.json.url }}" --similarity {{ $json.similarity_score }} --screenshot "{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}" --popup "{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}"
+  python "d:\A.Mous_Lim\code_mslm\GIT-HUB\website defacement tool\node_logger.py" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).target_id }} --url "{{ $('Node 3: Playwright Screenshot Engine').item.json.url || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).url }}" --similarity {{ $json.similarity_score || JSON.parse($json.stdout).similarity_score }} --screenshot "{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).current_path }}" --diff "" --popup "{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).popup_path }}"
   ```
 
 ---

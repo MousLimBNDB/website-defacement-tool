@@ -36,13 +36,12 @@
     },
     {
       "parameters": {
-        "batchSize": 1,
-        "options": {}
+        "jsCode": "// Parse JSON stdout from Node 1 (Target URLs Provider)\nconst rawStdout = $input.first().json.stdout || '[]';\nlet targets = [];\ntry {\n  targets = typeof rawStdout === 'string' ? JSON.parse(rawStdout) : rawStdout;\n} catch (e) {\n  targets = [];\n}\nif (!Array.isArray(targets)) {\n  targets = [targets];\n}\nreturn targets.map(target => ({ json: target }));"
       },
       "id": "node-split-batches",
       "name": "Split Targets in Batches",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         660,
         300
@@ -50,7 +49,7 @@
     },
     {
       "parameters": {
-        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\screenshot_engine.py\" --url \"{{ $json.url }}\" --target-id {{ $json.id }} --ignored-selectors \"{{ $json.ignored_selectors }}\" --target-selectors \"{{ $json.target_selectors }}\""
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\screenshot_engine.py\" --url \"{{ $json.url }}\" --target-id {{ $json.id || 1 }} --ignored-selectors \"{{ $json.ignored_selectors || '' }}\" --target-selectors \"{{ $json.target_selectors || '' }}\""
       },
       "id": "node-screenshot-engine",
       "name": "Node 3: Playwright Screenshot Engine",
@@ -63,7 +62,7 @@
     },
     {
       "parameters": {
-        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\image_comparator.py\" --baseline \"{{ $json.baseline_path }}\" --current \"{{ $json.current_path }}\" --diff-output \"{{ $json.current_path.replace('current_', 'diff_') }}\""
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\image_comparator.py\" --baseline \"{{ $json.baseline_path || JSON.parse($json.stdout).baseline_path }}\" --current \"{{ $json.current_path || JSON.parse($json.stdout).current_path }}\" --diff-output \"{{ ($json.current_path || JSON.parse($json.stdout).current_path).replace('current_', 'diff_') }}\""
       },
       "id": "node-image-comparator",
       "name": "Node 4: Image Comparator (Canvas Expansion)",
@@ -85,7 +84,7 @@
           "conditions": [
             {
               "id": "cond-similarity",
-              "leftValue": "={{ $json.similarity_score }}",
+              "leftValue": "={{ $json.similarity_score !== undefined ? $json.similarity_score : JSON.parse($json.stdout).similarity_score }}",
               "rightValue": 0.98,
               "operator": {
                 "type": "number",
@@ -107,7 +106,7 @@
     },
     {
       "parameters": {
-        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\ollama_analyzer.py\" --baseline \"{{ $('Node 3: Playwright Screenshot Engine').item.json.baseline_path }}\" --current \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}\" --diff \"{{ $json.diff_path }}\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}\" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id }} --url \"{{ $('Node 3: Playwright Screenshot Engine').item.json.url }}\""
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\ollama_analyzer.py\" --baseline \"{{ $('Node 3: Playwright Screenshot Engine').item.json.baseline_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).baseline_path }}\" --current \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).current_path }}\" --diff \"{{ $json.diff_path || JSON.parse($json.stdout).diff_path }}\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).popup_path }}\" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).target_id }} --url \"{{ $('Node 3: Playwright Screenshot Engine').item.json.url || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).url }}\""
       },
       "id": "node-ollama-analyzer",
       "name": "Node 6: Multimodal AI Engine (Ollama Qwen3:4B)",
@@ -120,7 +119,7 @@
     },
     {
       "parameters": {
-        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\node_alert.py\" --target-id {{ $json.target_id }} --url \"{{ $json.url }}\" --change-type \"{{ $json.change_type }}\" --confidence {{ $json.confidence }} --summary \"{{ $json.analysis_summary }}\" --similarity {{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.similarity_score }} --screenshot \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}\" --diff \"{{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.diff_path }}\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}\""
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\node_alert.py\" --target-id {{ $json.target_id || JSON.parse($json.stdout).target_id }} --url \"{{ $json.url || JSON.parse($json.stdout).url }}\" --change-type \"{{ $json.change_type || JSON.parse($json.stdout).change_type }}\" --confidence {{ $json.confidence || JSON.parse($json.stdout).confidence }} --summary \"{{ $json.analysis_summary || JSON.parse($json.stdout).analysis_summary }}\" --similarity {{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.similarity_score || JSON.parse($('Node 4: Image Comparator (Canvas Expansion)').item.json.stdout).similarity_score }} --screenshot \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).current_path }}\" --diff \"{{ $('Node 4: Image Comparator (Canvas Expansion)').item.json.diff_path || JSON.parse($('Node 4: Image Comparator (Canvas Expansion)').item.json.stdout).diff_path }}\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).popup_path }}\""
       },
       "id": "node-incident-alert",
       "name": "Node 7: Incident Alerting Engine (Webhook + DB)",
@@ -133,7 +132,7 @@
     },
     {
       "parameters": {
-        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\node_logger.py\" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id }} --url \"{{ $('Node 3: Playwright Screenshot Engine').item.json.url }}\" --similarity {{ $json.similarity_score }} --screenshot \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path }}\" --diff \"\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path }}\""
+        "command": "=python \"d:\\A.Mous_Lim\\code_mslm\\GIT-HUB\\website defacement tool\\node_logger.py\" --target-id {{ $('Node 3: Playwright Screenshot Engine').item.json.target_id || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).target_id }} --url \"{{ $('Node 3: Playwright Screenshot Engine').item.json.url || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).url }}\" --similarity {{ $json.similarity_score || JSON.parse($json.stdout).similarity_score }} --screenshot \"{{ $('Node 3: Playwright Screenshot Engine').item.json.current_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).current_path }}\" --diff \"\" --popup \"{{ $('Node 3: Playwright Screenshot Engine').item.json.popup_path || JSON.parse($('Node 3: Playwright Screenshot Engine').item.json.stdout).popup_path }}\""
       },
       "id": "node-logger-normal",
       "name": "Node 8: Log Normal Event (PostgreSQL)",
