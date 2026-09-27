@@ -7,56 +7,73 @@ import urllib.error
 
 logger = logging.getLogger(__name__)
 
-def analyze_defacement(baseline_path: str, current_path: str, diff_path: str, ollama_url: str = "http://localhost:11434", model: str = "llama3.2-vision") -> dict:
+def analyze_defacement(
+    baseline_path: str,
+    current_path: str,
+    diff_path: str,
+    popup_path: str = None,
+    ollama_url: str = "http://localhost:11434",
+    model: str = "llama3.2-vision"
+) -> dict:
     """
-    Sends baseline, current, and diff-highlighted screenshots to a local Ollama vision model
+    Sends baseline, current, diff-highlighted, and optional popup screenshots to a local Ollama vision model
     (e.g., llama3.2-vision, llava, qwen2-vl) to evaluate whether a website has been defaced.
-    
-    Returns a dictionary with:
-      - is_defaced: bool
-      - confidence: int (0 to 100)
-      - change_type: str
-      - analysis_summary: str
+
+    Args:
+        baseline_path: Path to baseline screenshot.
+        current_path: Path to current screenshot.
+        diff_path: Path to visual diff highlight screenshot.
+        popup_path: Optional path to isolated popup screenshot.
+        ollama_url: Base URL of local Ollama server.
+        model: Vision model tag name.
+
+    Returns:
+        dict: Evaluation dictionary with keys: is_defaced, confidence, change_type, analysis_summary.
     """
     if not ollama_url:
         ollama_url = "http://localhost:11434"
     if not model:
         model = "llama3.2-vision"
 
-    # Normalize host URL
     ollama_url = ollama_url.rstrip("/")
     api_endpoint = f"{ollama_url}/api/generate"
 
-    # Base64 encode available screenshots
     images_b64 = []
     image_names = []
-    
-    for name, path in [("Baseline", baseline_path), 
-                       ("Current", current_path), 
-                       ("Visual Diff", diff_path)]:
-        if os.path.exists(path):
+
+    candidates = [
+        ("Baseline", baseline_path),
+        ("Current", current_path),
+        ("Visual Diff", diff_path)
+    ]
+    if popup_path and os.path.exists(popup_path):
+        candidates.append(("Isolated Popup", popup_path))
+
+    for name, path in candidates:
+        if path and os.path.exists(path):
             try:
                 with open(path, "rb") as img_file:
                     b64_str = base64.b64encode(img_file.read()).decode("utf-8")
                     images_b64.append(b64_str)
                     image_names.append(name)
             except Exception as e:
-                logger.warning(f"Failed to read image {path}: {e}")
+                logger.warning(f"Failed to encode image {path}: {e}")
 
     if not images_b64:
         return {
             "is_defaced": False,
             "confidence": 0,
             "change_type": "Error",
-            "analysis_summary": "No screenshot images found to send to Ollama AI."
+            "analysis_summary": "No valid screenshot images found for Ollama AI evaluation."
         }
 
     prompt = (
-        "You are a cybersecurity expert monitoring websites for defacement, hacking, and malicious modification.\n"
+        "You are a cybersecurity expert monitoring websites for defacement, unauthorized modification, and hacking.\n"
         f"Analyze these {len(images_b64)} screenshots ({', '.join(image_names)}):\n"
         "1. Baseline (clean site)\n"
         "2. Current snapshot\n"
-        "3. Highlighted differences (red pixels show visual changes)\n\n"
+        "3. Highlighted differences (red pixels show visual changes)\n"
+        + ("4. Isolated Popup modal\n" if "Isolated Popup" in image_names else "") + "\n"
         "Distinguish between:\n"
         "- Normal content updates (news articles, dynamic ads, date shifts).\n"
         "- Visual layout bugs (broken CSS, missing images - non-malicious).\n"
@@ -86,14 +103,12 @@ def analyze_defacement(baseline_path: str, current_path: str, diff_path: str, ol
             data=req_data,
             headers={"Content-Type": "application/json"}
         )
-        
-        # Timeout after 15 seconds for local Vision model inference
-        with urllib.request.urlopen(req, timeout=15) as response:
+
+        with urllib.request.urlopen(req, timeout=20) as response:
             res_raw = response.read().decode("utf-8")
             res_json = json.loads(res_raw)
             response_text = res_json.get("response", "").strip()
 
-            # Clean markdown codeblocks if Ollama wrapped output in ```json ... ```
             if response_text.startswith("```"):
                 lines = response_text.splitlines()
                 if lines[0].startswith("```"):
@@ -103,7 +118,7 @@ def analyze_defacement(baseline_path: str, current_path: str, diff_path: str, ol
                 response_text = "\n".join(lines).strip()
 
             result = json.loads(response_text)
-            logger.info(f"Ollama AI Analysis complete. Result: {result}")
+            logger.info(f"Ollama AI analysis complete. Result: {result}")
 
             return {
                 "is_defaced": bool(result.get("is_defaced", False)),
@@ -113,10 +128,7 @@ def analyze_defacement(baseline_path: str, current_path: str, diff_path: str, ol
             }
 
     except urllib.error.URLError as e:
-        error_msg = (
-            f"Could not connect to Ollama at '{ollama_url}'. "
-            f"Please ensure Ollama is running (`ollama serve`) and the model '{model}' is pulled (`ollama pull {model}`). Details: {e}"
-        )
+        error_msg = f"Could not connect to Ollama at '{ollama_url}': {e}"
         logger.error(error_msg)
         return {
             "is_defaced": False,

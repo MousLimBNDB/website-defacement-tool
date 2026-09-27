@@ -25,8 +25,6 @@ const elements = {
     formAddTarget: document.getElementById('form-add-target'),
     targetNameInput: document.getElementById('target-name'),
     targetUrlInput: document.getElementById('target-url'),
-    targetIgnoredSelectorsInput: document.getElementById('target-ignored-selectors'),
-    targetSelectorsInput: document.getElementById('target-selectors'),
 
     // Edit Target Modal
     editTargetModal: document.getElementById('edit-target-modal'),
@@ -36,10 +34,8 @@ const elements = {
     editTargetIdInput: document.getElementById('edit-target-id'),
     editTargetNameInput: document.getElementById('edit-target-name'),
     editTargetUrlInput: document.getElementById('edit-target-url'),
-    editTargetIgnoredSelectorsInput: document.getElementById('edit-target-ignored-selectors'),
-    editTargetSelectorsInput: document.getElementById('edit-target-selectors'),
 
-    // Lists
+    // Lists & Dropdowns
     targetsList: document.getElementById('targets-list'),
     logsList: document.getElementById('logs-list'),
     selectFilterTarget: document.getElementById('select-filter-target'),
@@ -60,13 +56,13 @@ const elements = {
     inspectTag: document.getElementById('inspect-tag'),
     inspectSummary: document.getElementById('inspect-summary'),
     inspectorTitle: document.getElementById('inspector-title'),
-    
+
     // Slider & Comparison Elements
     imgBaseline: document.getElementById('img-baseline'),
     imgCurrent: document.getElementById('img-current'),
     imgOverlayWrap: document.getElementById('img-overlay-wrap'),
     sliderHandle: document.getElementById('slider-handle'),
-    
+
     // Side by Side View Elements
     sideImgBaseline: document.getElementById('side-img-baseline'),
     sideImgCurrent: document.getElementById('side-img-current'),
@@ -79,7 +75,7 @@ const elements = {
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     fetchData();
-    
+
     // Refresh stats and logs automatically every 10 seconds
     state.autoRefreshInterval = setInterval(() => {
         fetchStats();
@@ -118,13 +114,18 @@ function setupEventListeners() {
     elements.btnCancelSettings.addEventListener('click', closeSettingsModal);
     elements.formSettings.addEventListener('submit', handleSaveSettings);
 
+    const btnTestWebhook = document.getElementById('btn-test-webhook');
+    if (btnTestWebhook) {
+        btnTestWebhook.addEventListener('click', handleTestWebhook);
+    }
+
     // Tab Switching in Settings
     const tabButtons = document.querySelectorAll('.tab-btn');
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             tabButtons.forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
+
             btn.classList.add('active');
             document.getElementById(btn.dataset.tab).classList.add('active');
         });
@@ -136,11 +137,11 @@ function setupEventListeners() {
         btn.addEventListener('click', () => {
             sliderTabButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
+
             if (btn.dataset.view === 'split') {
                 elements.visualContainerSplit.classList.remove('hidden');
                 elements.visualContainerSide.classList.add('hidden');
-                setTimeout(adjustSliderLayout, 50); // let layout render
+                setTimeout(adjustSliderLayout, 50);
             } else {
                 elements.visualContainerSplit.classList.add('hidden');
                 elements.visualContainerSide.classList.remove('hidden');
@@ -153,382 +154,356 @@ function setupEventListeners() {
         elements.inspectorModal.classList.remove('active');
     });
 
-    // Handle Slider drag interaction
+    // Slider Drag Control
     elements.sliderHandle.addEventListener('input', (e) => {
         const val = e.target.value;
         elements.imgOverlayWrap.style.width = `${val}%`;
     });
-
-    // Window Resize -> Adjust comparison image alignment
-    window.addEventListener('resize', adjustSliderLayout);
-    
-    // Set up initial slider align when image loads
-    elements.imgBaseline.addEventListener('load', adjustSliderLayout);
 }
 
-// Adjusts the overlay image width to match the baseline image width exactly
-// This prevents the sliding overlay screenshot from stretching/squeezing
-function adjustSliderLayout() {
-    if (elements.inspectorModal.classList.contains('active') && !elements.visualContainerSplit.classList.contains('hidden')) {
-        const baselineWidth = elements.imgBaseline.clientWidth;
-        elements.imgCurrent.style.width = `${baselineWidth}px`;
-    }
-}
-
-// --- API Calls ---
-
+// Fetch Initial State Data
 async function fetchData() {
-    await fetchStats();
-    await fetchTargets();
-    await fetchLogs();
+    await Promise.all([
+        fetchTargets(),
+        fetchStats(),
+        fetchLogs()
+    ]);
 }
 
-async function fetchStats() {
-    try {
-        const response = await fetch('/api/stats');
-        const stats = await response.json();
-        
-        // Render system health status
-        if (stats.system_status === 'SECURE') {
-            elements.statusBadge.className = 'status-badge secure';
-            elements.statusText.textContent = 'All Systems Secure';
-            elements.cardAlertDefacements.classList.remove('alert-active');
-        } else {
-            elements.statusBadge.className = 'status-badge alert';
-            elements.statusText.textContent = 'Defacement Alert Active!';
-            elements.cardAlertDefacements.classList.add('alert-active');
-        }
-
-        // Render Stats numbers
-        elements.statActiveSites.textContent = `${stats.active_sites} / ${stats.total_sites}`;
-        elements.statTotalChecks.textContent = stats.total_checks.toLocaleString();
-        elements.statActiveAlerts.textContent = stats.active_defacements;
-        elements.statReliability.textContent = `${stats.reliability_rate}%`;
-    } catch (e) {
-        console.error('Error fetching stats:', e);
-    }
-}
-
+// Target API Calls
 async function fetchTargets() {
     try {
-        const response = await fetch('/api/targets');
-        state.targets = await response.json();
+        const res = await fetch('/api/targets');
+        state.targets = await res.json();
         renderTargets();
-        updateFilterOptions();
+        updateTargetFilterDropdown();
     } catch (e) {
-        console.error('Error fetching targets:', e);
-        elements.targetsList.innerHTML = `<div class="loading-spinner">Failed to load websites.</div>`;
+        console.error('Failed to fetch targets:', e);
     }
 }
-
-async function fetchLogs(targetId = '') {
-    try {
-        let url = '/api/logs?limit=50';
-        if (targetId) {
-            url += `&target_id=${targetId}`;
-        }
-        const response = await fetch(url);
-        state.logs = await response.json();
-        renderLogs();
-    } catch (e) {
-        console.error('Error fetching logs:', e);
-        elements.logsList.innerHTML = `<div class="loading-spinner">Failed to load logs.</div>`;
-    }
-}
-
-// --- DOM Renders ---
-
-function renderTargets() {
-    if (state.targets.length === 0) {
-        elements.targetsList.innerHTML = `
-            <div style="text-align: center; color: var(--text-secondary); padding: 2rem;">
-                <p>No websites registered.</p>
-                <p style="font-size: 0.8rem; margin-top: 0.5rem;">Click "+ Add Site" above to start auditing.</p>
-            </div>
-        `;
-        return;
-    }
-
-    elements.targetsList.innerHTML = state.targets.map(target => {
-        let statusClass = 'paused';
-        let statusText = 'Paused';
-
-        if (target.is_active) {
-            statusClass = 'monitoring';
-            statusText = 'Monitoring';
-            
-            // Check if this website has a logged defacement alert
-            const siteLogs = state.logs.filter(l => l.target_id === target.id);
-            if (siteLogs.length > 0 && siteLogs[0].is_defaced === 1) {
-                statusClass = 'defaced';
-                statusText = 'Defaced!';
-            }
-        }
-
-        const ignoredBadge = target.ignored_selectors ? 
-            `<div class="target-rules-badge" title="Ignored dynamic elements (clocks/tickers)">🛡️ Ignored: <code>${escapeHTML(target.ignored_selectors)}</code></div>` : '';
-        const sectionBadge = target.target_selectors ? 
-            `<div class="target-rules-badge focus" title="Target section focus">🎯 Focus: <code>${escapeHTML(target.target_selectors)}</code></div>` : '';
-
-        return `
-            <div class="target-item" data-id="${target.id}">
-                <div class="target-info">
-                    <div class="target-title-row">
-                        <span class="target-name">${escapeHTML(target.name)}</span>
-                        <span class="target-status-badge ${statusClass}">${statusText}</span>
-                    </div>
-                    <a href="${target.url}" target="_blank" class="target-url">${escapeHTML(target.url)}</a>
-                    ${ignoredBadge}
-                    ${sectionBadge}
-                </div>
-                <div class="target-meta-row">
-                    <div class="target-actions">
-                        <button class="btn btn-secondary btn-sm btn-toggle-active" onclick="toggleTarget(${target.id}, ${target.is_active})">
-                            ${target.is_active ? '⏸️ Pause' : '▶️ Resume'}
-                        </button>
-                        <button class="btn btn-secondary btn-sm btn-edit-rules" title="Configure Ignored Elements" onclick="openEditTargetModal(${target.id})">
-                            ⚙️ Rules
-                        </button>
-                        <button class="btn btn-secondary btn-sm btn-reset-baseline" title="Reset Baseline Image" onclick="resetBaseline(${target.id})">
-                            🔄 Reset Base
-                        </button>
-                    </div>
-                    <button class="btn btn-danger btn-sm btn-icon" title="Delete Website" onclick="deleteTarget(${target.id})">
-                        🗑️
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function renderLogs() {
-    if (state.logs.length === 0) {
-        elements.logsList.innerHTML = `
-            <div style="text-align: center; color: var(--text-secondary); padding: 3rem;">
-                <p>No activity logs captured yet.</p>
-                <p style="font-size: 0.85rem; margin-top: 0.5rem;">Checks run automatically every 5 minutes.</p>
-            </div>
-        `;
-        return;
-    }
-
-    elements.logsList.innerHTML = state.logs.map(log => {
-        let statusIcon = '✅';
-        let itemClass = '';
-        let tagClass = 'tag-no-change';
-        let tagText = 'Secure';
-
-        if (log.status === 'FAILED') {
-            statusIcon = '⚠️';
-            tagClass = 'tag-error';
-            tagText = 'Error';
-        } else if (log.is_defaced === 1) {
-            statusIcon = '🚨';
-            itemClass = 'defaced-alert';
-            tagClass = 'tag-defaced';
-            tagText = 'Defacement Alert';
-        } else if (log.change_type && log.change_type !== 'No Change' && log.change_type !== 'Baseline Created') {
-            statusIcon = 'ℹ️';
-            tagClass = 'tag-update';
-            tagText = log.change_type;
-        }
-
-        const dateFormatted = formatTimestamp(log.timestamp);
-        const scoreFormatted = log.similarity_score !== null ? `${(log.similarity_score * 100).toFixed(1)}%` : 'N/A';
-        const isScoreLow = log.similarity_score !== null && log.similarity_score < 0.98;
-
-        return `
-            <div class="log-item ${itemClass}" onclick="inspectLog(${log.id})">
-                <div class="log-status-icon">${statusIcon}</div>
-                <div class="log-details">
-                    <div class="log-site-info">
-                        <span class="log-site-name">${escapeHTML(log.target_name)}</span>
-                        <span class="log-score-tag ${isScoreLow ? 'score-low' : ''}" title="Visual Similarity Score">Similarity: ${scoreFormatted}</span>
-                    </div>
-                    <div class="log-summary">${escapeHTML(log.analysis_summary || 'Manual audit or status ok.')}</div>
-                </div>
-                <div class="log-meta">
-                    <span class="tag ${tagClass}">${tagText}</span>
-                    <span class="log-time">${dateFormatted}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function updateFilterOptions() {
-    const currentVal = elements.selectFilterTarget.value;
-    
-    let html = '<option value="">All Sites</option>';
-    state.targets.forEach(target => {
-        html += `<option value="${target.id}">${escapeHTML(target.name)}</option>`;
-    });
-    elements.selectFilterTarget.innerHTML = html;
-    elements.selectFilterTarget.value = currentVal;
-}
-
-// --- Action Handlers ---
 
 async function handleAddTarget(e) {
     e.preventDefault();
     const name = elements.targetNameInput.value.trim();
     const url = elements.targetUrlInput.value.trim();
-    const ignored_selectors = elements.targetIgnoredSelectorsInput ? elements.targetIgnoredSelectorsInput.value.trim() : '';
-    const target_selectors = elements.targetSelectorsInput ? elements.targetSelectorsInput.value.trim() : '';
 
     if (!name || !url) return;
 
     try {
-        const response = await fetch('/api/targets', {
+        const res = await fetch('/api/targets', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, url, ignored_selectors, target_selectors })
+            body: JSON.stringify({ name, url })
         });
-        
-        if (response.ok) {
-            elements.addTargetBox.classList.remove('expanded');
+
+        if (res.ok) {
             elements.formAddTarget.reset();
-            fetchStats();
+            elements.addTargetBox.classList.remove('expanded');
             fetchTargets();
-            fetchLogs();
+            fetchStats();
         } else {
-            const err = await response.json();
-            alert(`Error adding site: ${err.detail || 'Unknown error'}`);
+            const data = await res.json();
+            alert(`Error adding target: ${data.detail || 'Unknown error'}`);
         }
     } catch (err) {
-        console.error(err);
-        alert('Network error adding site.');
+        console.error('Error adding target:', err);
     }
 }
 
-async function toggleTarget(id, currentActive) {
-    event.stopPropagation();
-    try {
-        const response = await fetch(`/api/targets/${id}/toggle`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_active: !currentActive })
-        });
-        if (response.ok) {
-            fetchTargets();
-            fetchStats();
-        }
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-async function resetBaseline(id) {
-    event.stopPropagation();
-    if (!confirm('Are you sure you want to reset the baseline? This will set the last captured screenshot as the new trusted baseline.')) {
-        return;
-    }
-    try {
-        const response = await fetch(`/api/targets/${id}/reset-baseline`, {
-            method: 'POST'
-        });
-        const result = await response.json();
-        alert(result.message);
-        fetchLogs();
-    } catch (err) {
-        console.error(err);
-        alert('Failed to reset baseline.');
-    }
-}
-
-async function deleteTarget(id) {
-    event.stopPropagation();
-    if (!confirm('Are you sure you want to remove this website from monitoring? This deletes all history logs and screenshots.')) {
-        return;
-    }
-    try {
-        const response = await fetch(`/api/targets/${id}`, {
-            method: 'DELETE'
-        });
-        if (response.ok) {
-            fetchTargets();
-            fetchStats();
-            fetchLogs();
-        }
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-// Edit Target Modal functions
-function openEditTargetModal(id) {
-    if (event) event.stopPropagation();
-    const target = state.targets.find(t => t.id === id);
+function openEditTargetModal(targetId) {
+    const target = state.targets.find(t => t.id === targetId);
     if (!target) return;
 
     elements.editTargetIdInput.value = target.id;
-    elements.editTargetNameInput.value = target.name || '';
-    elements.editTargetUrlInput.value = target.url || '';
-    elements.editTargetIgnoredSelectorsInput.value = target.ignored_selectors || '';
-    elements.editTargetSelectorsInput.value = target.target_selectors || '';
+    elements.editTargetNameInput.value = target.name;
+    elements.editTargetUrlInput.value = target.url;
 
     elements.editTargetModal.classList.add('active');
 }
 
 function closeEditTargetModal() {
     elements.editTargetModal.classList.remove('active');
+    elements.formEditTarget.reset();
 }
 
 async function handleSaveTargetEdit(e) {
     e.preventDefault();
-    const id = elements.editTargetIdInput.value;
+    const targetId = elements.editTargetIdInput.value;
     const name = elements.editTargetNameInput.value.trim();
     const url = elements.editTargetUrlInput.value.trim();
-    const ignored_selectors = elements.editTargetIgnoredSelectorsInput.value.trim();
-    const target_selectors = elements.editTargetSelectorsInput.value.trim();
-
-    if (!id || !name || !url) return;
 
     try {
-        const response = await fetch(`/api/targets/${id}`, {
+        const res = await fetch(`/api/targets/${targetId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, url, ignored_selectors, target_selectors })
+            body: JSON.stringify({ name, url })
         });
 
-        if (response.ok) {
+        if (res.ok) {
             closeEditTargetModal();
             fetchTargets();
-            fetchLogs();
-            alert('Website monitoring rules updated successfully.');
         } else {
-            const err = await response.json();
-            alert(`Failed to update target: ${err.detail || 'Unknown error'}`);
+            alert('Failed to update target rules.');
         }
     } catch (err) {
-        console.error(err);
-        alert('Network error updating website rules.');
+        console.error('Error updating target:', err);
     }
 }
 
-// Settings Modal Operations
+async function toggleTargetStatus(targetId, currentStatus) {
+    try {
+        const res = await fetch(`/api/targets/${targetId}/toggle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: !currentStatus })
+        });
+
+        if (res.ok) {
+            fetchTargets();
+            fetchStats();
+        }
+    } catch (err) {
+        console.error('Failed to toggle target status:', err);
+    }
+}
+
+async function resetTargetBaseline(targetId) {
+    if (!confirm('Re-establish current snapshot as the clean baseline?')) return;
+
+    try {
+        const res = await fetch(`/api/targets/${targetId}/reset-baseline`, {
+            method: 'POST'
+        });
+
+        const data = await res.json();
+        alert(data.message || 'Baseline reset completed.');
+        fetchLogs();
+    } catch (err) {
+        console.error('Failed to reset baseline:', err);
+    }
+}
+
+async function deleteTarget(targetId) {
+    if (!confirm('Are you sure you want to delete this target and all its logs?')) return;
+
+    try {
+        const res = await fetch(`/api/targets/${targetId}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            fetchTargets();
+            fetchStats();
+            fetchLogs();
+        }
+    } catch (err) {
+        console.error('Failed to delete target:', err);
+    }
+}
+
+// Render Targets List
+function renderTargets() {
+    if (state.targets.length === 0) {
+        elements.targetsList.innerHTML = `
+            <div class="empty-state">
+                <p>No website targets monitored.</p>
+                <button onclick="document.getElementById('btn-show-add-target').click()" class="btn btn-secondary btn-sm" style="margin-top:0.5rem;">+ Add Your First Website</button>
+            </div>
+        `;
+        return;
+    }
+
+    elements.targetsList.innerHTML = state.targets.map(t => `
+        <div class="target-card ${t.is_active ? '' : 'inactive'}">
+            <div class="target-main">
+                <div class="target-info">
+                    <h4>${escapeHtml(t.name)}</h4>
+                    <a href="${escapeHtml(t.url)}" target="_blank" class="target-url">${escapeHtml(t.url)}</a>
+                </div>
+                <div class="target-toggle">
+                    <label class="switch">
+                        <input type="checkbox" ${t.is_active ? 'checked' : ''} onchange="toggleTargetStatus(${t.id}, ${t.is_active})">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+            <div class="target-actions">
+                <button class="btn-action" onclick="resetTargetBaseline(${t.id})" title="Reset Baseline Image">🎯 Reset Baseline</button>
+                <button class="btn-action" onclick="openEditTargetModal(${t.id})" title="Edit Rules">⚙️ Edit</button>
+                <button class="btn-action danger" onclick="deleteTarget(${t.id})" title="Delete Target">🗑️ Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateTargetFilterDropdown() {
+    const currentVal = elements.selectFilterTarget.value;
+    elements.selectFilterTarget.innerHTML = `
+        <option value="">All Monitored Sites</option>
+        ${state.targets.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
+    `;
+    elements.selectFilterTarget.value = currentVal;
+}
+
+// Stats API Calls
+async function fetchStats() {
+    try {
+        const res = await fetch('/api/stats');
+        const stats = await res.json();
+
+        elements.statActiveSites.textContent = `${stats.active_sites} / ${stats.total_sites}`;
+        elements.statTotalChecks.textContent = stats.total_checks;
+        elements.statActiveAlerts.textContent = stats.active_defacements;
+        elements.statReliability.textContent = `${stats.reliability_rate}%`;
+
+        if (stats.active_defacements > 0) {
+            elements.statusBadge.className = 'status-badge alert';
+            elements.statusText.textContent = `${stats.active_defacements} DEFACEMENT ALERT(S)`;
+            elements.cardAlertDefacements.classList.add('active-alert');
+        } else {
+            elements.statusBadge.className = 'status-badge secure';
+            elements.statusText.textContent = 'All Systems Secure';
+            elements.cardAlertDefacements.classList.remove('active-alert');
+        }
+    } catch (e) {
+        console.error('Failed to fetch stats:', e);
+    }
+}
+
+// Logs API Calls
+async function fetchLogs(targetId = '') {
+    try {
+        const url = targetId ? `/api/logs?target_id=${targetId}&limit=50` : '/api/logs?limit=50';
+        const res = await fetch(url);
+        state.logs = await res.json();
+        renderLogs();
+    } catch (e) {
+        console.error('Failed to fetch logs:', e);
+    }
+}
+
+// Render Logs Feed
+function renderLogs() {
+    if (state.logs.length === 0) {
+        elements.logsList.innerHTML = `<div class="empty-state"><p>No audit activity recorded yet.</p></div>`;
+        return;
+    }
+
+    elements.logsList.innerHTML = state.logs.map(log => {
+        let badgeClass = 'tag-secure';
+        let tagText = 'NORMAL';
+
+        if (log.status === 'FAILED') {
+            badgeClass = 'tag-error';
+            tagText = 'ERROR';
+        } else if (log.is_defaced === 1) {
+            badgeClass = 'tag-defaced';
+            tagText = `DEFACEMENT (${log.confidence}%)`;
+        } else if (log.change_type === 'Baseline Created' || log.change_type === 'Baseline Reset') {
+            badgeClass = 'tag-baseline';
+            tagText = log.change_type.toUpperCase();
+        } else if (log.similarity_score < 0.98) {
+            badgeClass = 'tag-update';
+            tagText = log.change_type || 'UPDATE';
+        }
+
+        const formattedTime = new Date(log.timestamp).toLocaleString();
+        const scorePercent = log.similarity_score ? (log.similarity_score * 100).toFixed(1) : '0.0';
+
+        return `
+            <div class="log-card ${log.is_defaced === 1 ? 'log-defaced' : ''}">
+                <div class="log-header">
+                    <div class="log-site-info">
+                        <strong>${escapeHtml(log.target_name || 'Website')}</strong>
+                        <span class="log-time">${formattedTime}</span>
+                    </div>
+                    <span class="tag ${badgeClass}">${tagText}</span>
+                </div>
+                <div class="log-body">
+                    <p class="log-summary">${escapeHtml(log.analysis_summary || log.error_message || 'Audit check completed.')}</p>
+                    <div class="log-meta">
+                        <span>Similarity Score: <strong>${scorePercent}%</strong></span>
+                        ${log.screenshot_path ? `<button class="btn-inspect" onclick="openInspectorModal(${log.id})">🔍 Inspect Visual Comparison</button>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Inspector Modal Handler
+function openInspectorModal(logId) {
+    const log = state.logs.find(l => l.id === logId);
+    if (!log || !log.screenshot_path) return;
+
+    elements.inspectSite.textContent = log.target_name || log.target_url;
+    elements.inspectScore.textContent = `${(log.similarity_score * 100).toFixed(2)}%`;
+    elements.inspectTime.textContent = new Date(log.timestamp).toLocaleString();
+    elements.inspectSummary.textContent = log.analysis_summary || 'No diagnostic summary provided.';
+
+    if (log.is_defaced === 1) {
+        elements.inspectTag.className = 'tag tag-defaced';
+        elements.inspectTag.textContent = `DEFACEMENT (${log.confidence}% confidence)`;
+    } else {
+        elements.inspectTag.className = 'tag tag-secure';
+        elements.inspectTag.textContent = log.change_type || 'NORMAL INTEGRITY';
+    }
+
+    const targetId = log.target_id;
+    const baselineUrl = `/static/screenshots/${targetId}/baseline.png`;
+    const currentUrl = log.screenshot_path;
+    const diffUrl = log.diff_path || log.screenshot_path;
+
+    elements.imgBaseline.src = baselineUrl;
+    elements.imgCurrent.src = currentUrl;
+
+    elements.sideImgBaseline.src = baselineUrl;
+    elements.sideImgCurrent.src = currentUrl;
+    elements.sideImgDiff.src = diffUrl;
+
+    elements.sliderHandle.value = 50;
+    elements.imgOverlayWrap.style.width = '50%';
+
+    elements.inspectorModal.classList.add('active');
+    setTimeout(adjustSliderLayout, 100);
+}
+
+function adjustSliderLayout() {
+    if (elements.imgBaseline.complete && elements.imgBaseline.naturalWidth > 0) {
+        elements.imgCurrent.style.width = `${elements.imgBaseline.clientWidth}px`;
+    } else {
+        elements.imgBaseline.onload = () => {
+            elements.imgCurrent.style.width = `${elements.imgBaseline.clientWidth}px`;
+        };
+    }
+}
+
+// Settings Modal Handler
 async function openSettingsModal() {
     try {
-        const response = await fetch('/api/settings');
-        state.settings = await response.json();
-        
-        // Populate inputs
-        document.getElementById('check-interval').value = state.settings.check_interval_mins;
-        document.getElementById('similarity-threshold').value = state.settings.similarity_threshold;
-        document.getElementById('ai-provider').value = state.settings.ai_provider || 'ollama';
+        const res = await fetch('/api/settings');
+        state.settings = await res.json();
+
+        document.getElementById('check-interval').value = state.settings.check_interval || state.settings.check_interval_mins || 5;
+        document.getElementById('check-interval-unit').value = state.settings.check_interval_unit || 'minutes';
+        document.getElementById('similarity-threshold').value = state.settings.similarity_threshold || 0.98;
+        document.getElementById('browser-engine').value = state.settings.browser_engine || 'firefox';
+
+        const useLlm = String(state.settings.use_llm || 'true').toLowerCase() !== 'false';
+        document.getElementById('use-llm').checked = useLlm;
         document.getElementById('ollama-url').value = state.settings.ollama_url || 'http://localhost:11434';
         document.getElementById('ollama-model').value = state.settings.ollama_model || 'llama3.2-vision';
+
         document.getElementById('webhook-url').value = state.settings.webhook_url || '';
-        document.getElementById('smtp-host').value = state.settings.smtp_host || '';
-        document.getElementById('smtp-port').value = state.settings.smtp_port || '587';
-        document.getElementById('smtp-user').value = state.settings.smtp_user || '';
-        document.getElementById('smtp-pass').value = state.settings.smtp_password || '';
-        document.getElementById('alert-email-to').value = state.settings.alert_email_to || '';
-        
+        document.getElementById('webhook-trigger-on').value = state.settings.webhook_trigger_on || 'defacement';
+        document.getElementById('webhook-payload-format').value = state.settings.webhook_payload_format || 'n8n';
+
+        const testResBox = document.getElementById('webhook-test-result');
+        if (testResBox) testResBox.style.display = 'none';
+
         elements.settingsModal.classList.add('active');
-    } catch (err) {
-        console.error('Error opening settings:', err);
+    } catch (e) {
+        console.error('Failed to load settings:', e);
     }
 }
 
@@ -538,119 +513,88 @@ function closeSettingsModal() {
 
 async function handleSaveSettings(e) {
     e.preventDefault();
-    const check_interval_mins = parseInt(document.getElementById('check-interval').value);
-    const similarity_threshold = parseFloat(document.getElementById('similarity-threshold').value);
-    const ai_provider = document.getElementById('ai-provider').value;
-    const ollama_url = document.getElementById('ollama-url').value.trim();
-    const ollama_model = document.getElementById('ollama-model').value.trim();
-    const webhook_url = document.getElementById('webhook-url').value.trim();
-    const smtp_host = document.getElementById('smtp-host').value.trim();
-    const smtp_port = parseInt(document.getElementById('smtp-port').value) || 587;
-    const smtp_user = document.getElementById('smtp-user').value.trim();
-    const smtp_password = document.getElementById('smtp-pass').value;
-    const alert_email_to = document.getElementById('alert-email-to').value.trim();
+
+    const payload = {
+        check_interval: parseFloat(document.getElementById('check-interval').value),
+        check_interval_unit: document.getElementById('check-interval-unit').value,
+        similarity_threshold: parseFloat(document.getElementById('similarity-threshold').value),
+        browser_engine: document.getElementById('browser-engine').value,
+        use_llm: document.getElementById('use-llm').checked,
+        ollama_url: document.getElementById('ollama-url').value.trim(),
+        ollama_model: document.getElementById('ollama-model').value.trim(),
+        webhook_url: document.getElementById('webhook-url').value.trim(),
+        webhook_trigger_on: document.getElementById('webhook-trigger-on').value,
+        webhook_payload_format: document.getElementById('webhook-payload-format').value
+    };
 
     try {
-        const response = await fetch('/api/settings', {
+        const res = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                check_interval_mins,
-                similarity_threshold,
-                ai_provider,
-                ollama_url,
-                ollama_model,
-                webhook_url,
-                smtp_host,
-                smtp_port,
-                smtp_user,
-                smtp_password,
-                alert_email_to
-            })
+            body: JSON.stringify(payload)
         });
 
-        if (response.ok) {
+        if (res.ok) {
             closeSettingsModal();
-            fetchLogs();
             alert('Settings updated successfully.');
         } else {
             alert('Failed to save settings.');
         }
     } catch (err) {
-        console.error(err);
-        alert('Network error saving settings.');
+        console.error('Error saving settings:', err);
     }
 }
 
-// Inspector Modal (Audit view)
-function inspectLog(logId) {
-    const log = state.logs.find(l => l.id === logId);
-    if (!log) return;
-    
-    // Setup labels and texts
-    elements.inspectSite.textContent = log.target_name;
-    elements.inspectScore.textContent = log.similarity_score !== null ? `${(log.similarity_score * 100).toFixed(2)}%` : 'N/A';
-    elements.inspectTime.textContent = formatTimestamp(log.timestamp);
-    
-    // Tag styling
-    let tagText = 'Secure';
-    let tagClass = 'tag-no-change';
-    if (log.status === 'FAILED') {
-        tagText = 'Error';
-        tagClass = 'tag-error';
-    } else if (log.is_defaced === 1) {
-        tagText = `Defacement Alert (${log.confidence}% Confidence)`;
-        tagClass = 'tag-defaced';
-    } else if (log.change_type && log.change_type !== 'No Change') {
-        tagText = log.change_type;
-        tagClass = 'tag-update';
+async function handleTestWebhook() {
+    const webhookUrl = document.getElementById('webhook-url').value.trim();
+    const payloadFormat = document.getElementById('webhook-payload-format').value;
+    const resultBox = document.getElementById('webhook-test-result');
+
+    if (!webhookUrl) {
+        alert('Please enter a Webhook Endpoint URL first.');
+        return;
     }
-    
-    elements.inspectTag.className = `tag ${tagClass}`;
-    elements.inspectTag.textContent = tagText;
-    elements.inspectSummary.textContent = log.analysis_summary || 'No changes detected. Website looks normal.';
-    
-    // Setup screenshots URLs
-    // Baseline path is under: static/screenshots/{target_id}/baseline.png
-    const baselineUrl = `/static/screenshots/${log.target_id}/baseline.png`;
-    const currentUrl = log.screenshot_path || '/static/screenshots/placeholder.png';
-    const diffUrl = log.diff_path || '/static/screenshots/placeholder.png';
-    
-    // Load images
-    elements.imgBaseline.src = baselineUrl;
-    elements.imgCurrent.src = currentUrl;
-    
-    // Side by side images
-    elements.sideImgBaseline.src = baselineUrl;
-    elements.sideImgCurrent.src = currentUrl;
-    elements.sideImgDiff.src = diffUrl;
 
-    // Reset slider to 50%
-    elements.sliderHandle.value = 50;
-    elements.imgOverlayWrap.style.width = '50%';
-    
-    // Show modal
-    elements.inspectorModal.classList.add('active');
-    
-    // Trigger alignment check once images load
-    setTimeout(adjustSliderLayout, 100);
-}
+    resultBox.style.display = 'block';
+    resultBox.style.background = 'rgba(59, 130, 246, 0.15)';
+    resultBox.style.border = '1px solid rgba(59, 130, 246, 0.3)';
+    resultBox.style.color = '#93c5fd';
+    resultBox.textContent = '⏳ Sending test payload to n8n webhook...';
 
-// --- Utility Functions ---
-
-function escapeHTML(str) {
-    if (!str) return '';
-    return str.replace(/[&<>'"]/g, 
-        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-    );
-}
-
-function formatTimestamp(timestampStr) {
-    if (!timestampStr) return '';
     try {
-        const d = new Date(timestampStr);
-        return d.toLocaleString();
-    } catch (e) {
-        return timestampStr;
+        const res = await fetch('/api/test-webhook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ webhook_url: webhookUrl, webhook_payload_format: payloadFormat })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            resultBox.style.background = 'rgba(16, 185, 129, 0.15)';
+            resultBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+            resultBox.style.color = '#6ee7b7';
+            resultBox.textContent = `✅ ${data.message || 'Webhook delivered successfully!'}`;
+        } else {
+            resultBox.style.background = 'rgba(239, 68, 68, 0.15)';
+            resultBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            resultBox.style.color = '#fca5a5';
+            resultBox.textContent = `❌ ${data.detail || 'Failed to deliver webhook payload.'}`;
+        }
+    } catch (err) {
+        resultBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        resultBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        resultBox.style.color = '#fca5a5';
+        resultBox.textContent = `❌ Network Error: ${err.message}`;
     }
+}
+
+// Utility Helpers
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }

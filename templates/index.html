@@ -77,27 +77,17 @@
                     <button id="btn-show-add-target" class="btn btn-primary btn-sm">+ Add Site</button>
                 </div>
 
-                <!-- Add Target Dialog (Inline dropdown/toggle) -->
+                <!-- Add Target Dialog -->
                 <div id="add-target-box" class="collapsed-box">
                     <form id="form-add-target" class="glass-form">
                         <h3>Monitor New Website</h3>
                         <div class="form-group">
                             <label for="target-name">Website Name</label>
-                            <input type="text" id="target-name" placeholder="e.g. Company Portal" required autocomplete="off">
+                            <input type="text" id="target-name" placeholder="e.g. Corporate Portal" required autocomplete="off">
                         </div>
                         <div class="form-group">
                             <label for="target-url">Website URL</label>
                             <input type="url" id="target-url" placeholder="https://example.com" required autocomplete="off">
-                        </div>
-                        <div class="form-group">
-                            <label for="target-ignored-selectors">Ignored Dynamic Elements (False Positive Prevention)</label>
-                            <input type="text" id="target-ignored-selectors" placeholder="e.g. .clock, #live-timer, .ticker, .counter-div" autocomplete="off">
-                            <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">Comma-separated CSS selectors (e.g. live clocks, timers, dynamic tickers) to hide/mask during comparison.</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="target-selectors">Target Section Fragment (Optional Focus)</label>
-                            <input type="text" id="target-selectors" placeholder="e.g. #main-content, main, article" autocomplete="off">
-                            <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">CSS selector of specific page section/div to monitor exclusively.</small>
                         </div>
                         <div class="form-actions">
                             <button type="button" id="btn-cancel-add" class="btn btn-text">Cancel</button>
@@ -140,34 +130,52 @@
             </div>
             <form id="form-settings" class="modal-form">
                 <div class="tabs-header">
-                    <button type="button" class="tab-btn active" data-tab="tab-general">General</button>
-                    <button type="button" class="tab-btn" data-tab="tab-ai">AI Engine</button>
-                    <button type="button" class="tab-btn" data-tab="tab-alerts">Alerts Configuration</button>
+                    <button type="button" class="tab-btn active" data-tab="tab-general">General & Audit</button>
+                    <button type="button" class="tab-btn" data-tab="tab-ai">Ollama AI</button>
+                    <button type="button" class="tab-btn" data-tab="tab-alerts">n8n Webhook</button>
                 </div>
 
+                <!-- General Tab -->
                 <div class="tab-content active" id="tab-general">
                     <div class="form-group">
-                        <label for="check-interval">Capture & Audit Frequency (Minutes)</label>
-                        <input type="number" id="check-interval" min="1" max="1440" required>
-                        <small>Time interval between taking snapshots of monitored websites.</small>
+                        <label>Capture & Audit Frequency</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="number" id="check-interval" min="1" max="86400" required style="flex: 2;">
+                            <select id="check-interval-unit" class="select-dropdown" style="flex: 1; padding: 0.75rem;">
+                                <option value="seconds">Seconds</option>
+                                <option value="minutes">Minutes</option>
+                                <option value="hours">Hours</option>
+                                <option value="days">Days</option>
+                            </select>
+                        </div>
+                        <small>Specify audit execution frequency for active targets.</small>
                     </div>
                     <div class="form-group">
                         <label for="similarity-threshold">Similarity Threshold (0.0 - 1.0)</label>
                         <input type="number" id="similarity-threshold" min="0.5" max="1.0" step="0.01" required>
-                        <small>Below this similarity ratio, AI visual audit will be invoked. (Recommended: 0.98)</small>
+                        <small>Below this similarity ratio, AI visual audit is invoked. (Recommended: 0.98)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="browser-engine">Playwright Browser Engine</label>
+                        <select id="browser-engine" class="select-dropdown" style="width: 100%; padding: 0.75rem;">
+                            <option value="firefox">Firefox (Clean & Stable - Recommended)</option>
+                            <option value="chromium">Chromium</option>
+                            <option value="auto">Auto (Try Firefox then Chromium)</option>
+                        </select>
+                        <small>Firefox is recommended on Linux VMs to prevent missing system library warnings.</small>
                     </div>
                 </div>
 
+                <!-- AI Tab -->
                 <div class="tab-content" id="tab-ai">
-                    <div class="form-group">
-                        <label for="ai-provider">AI Provider</label>
-                        <select id="ai-provider" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); color: var(--text-primary);">
-                            <option value="ollama">Ollama (Local Vision AI)</option>
-                            <option value="gemini">Google Gemini AI</option>
-                        </select>
-                        <small>Choose the AI engine for visual defacement analysis.</small>
+                    <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                        <div>
+                            <label for="use-llm" style="margin: 0; cursor: pointer; font-weight: 600;">Enable Ollama Vision AI</label>
+                            <small style="display: block;">When enabled, LLM evaluates screenshots when similarity falls below threshold.</small>
+                        </div>
+                        <input type="checkbox" id="use-llm" style="width: 20px; height: 20px; cursor: pointer;">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="margin-top: 1rem;">
                         <label for="ollama-url">Ollama Host URL</label>
                         <input type="text" id="ollama-url" placeholder="http://localhost:11434">
                         <small>Local or remote Ollama server URL (Default: http://localhost:11434).</small>
@@ -175,42 +183,70 @@
                     <div class="form-group">
                         <label for="ollama-model">Ollama Vision Model</label>
                         <input type="text" id="ollama-model" placeholder="llama3.2-vision">
-                        <small>Recommended vision models: llama3.2-vision, llava, qwen2-vl, bakllava.</small>
+                        <small>Recommended models: llama3.2-vision, llava, qwen2-vl.</small>
                     </div>
                 </div>
 
+                <!-- Webhook Tab -->
                 <div class="tab-content" id="tab-alerts">
-                    <h3>Discord / Slack Webhooks</h3>
+                    <h3>n8n / Webhook Integration</h3>
                     <div class="form-group">
-                        <label for="webhook-url">Webhook Integration URL</label>
-                        <input type="url" id="webhook-url" placeholder="https://discord.com/api/webhooks/...">
-                        <small>Posts defacement alerts immediately with AI diagnostics.</small>
+                        <label for="webhook-url">n8n Webhook Endpoint URL</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="url" id="webhook-url" placeholder="https://n8n.your-server.com/webhook/defacement-alert" style="flex: 1;">
+                            <button type="button" id="btn-test-webhook" class="btn btn-secondary btn-sm" style="white-space: nowrap;">🧪 Test Webhook</button>
+                        </div>
+                        <small>Transmits detection event JSON payload to your n8n workflow.</small>
                     </div>
 
-                    <h3>SMTP Email Configuration</h3>
-                    <div class="form-row">
-                        <div class="form-group col-8">
-                            <label for="smtp-host">SMTP Host</label>
-                            <input type="text" id="smtp-host" placeholder="smtp.gmail.com">
-                        </div>
-                        <div class="form-group col-4">
-                            <label for="smtp-port">SMTP Port</label>
-                            <input type="number" id="smtp-port" placeholder="587">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="smtp-user">SMTP Username / Email</label>
-                            <input type="text" id="smtp-user" placeholder="security@yourdomain.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="smtp-pass">SMTP Password</label>
-                            <input type="password" id="smtp-pass" placeholder="••••••••••••">
-                        </div>
-                    </div>
+                    <div id="webhook-test-result" style="display: none; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+
                     <div class="form-group">
-                        <label for="alert-email-to">Alert Recipient Email</label>
-                        <input type="email" id="alert-email-to" placeholder="admin@yourdomain.com">
+                        <label for="webhook-trigger-on">Send Webhook Payload When</label>
+                        <select id="webhook-trigger-on" class="select-dropdown" style="width: 100%; padding: 0.75rem;">
+                            <option value="defacement">Defacement Confirmed Only (Recommended)</option>
+                            <option value="anomaly">Any Visual Anomaly (Similarity < Threshold)</option>
+                            <option value="all">Every Audit Check Run</option>
+                        </select>
+                        <small>Controls when n8n receives event payloads.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="webhook-payload-format">JSON Payload Structure</label>
+                        <select id="webhook-payload-format" class="select-dropdown" style="width: 100%; padding: 0.75rem;">
+                            <option value="n8n">n8n Workflow Schema (Recommended)</option>
+                            <option value="standard">Standard Event Schema</option>
+                            <option value="detailed">Detailed Pipeline Metrics & Artifact Paths</option>
+                        </select>
+                        <small>Choose JSON formatting layout sent to the webhook endpoint.</small>
+                    </div>
+
+                    <div style="background: rgba(59, 130, 246, 0.08); padding: 1rem; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.25); margin-top: 1rem;">
+                        <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: #60a5fa;">📋 n8n Connection Setup Guide & Troubleshooting:</h4>
+                        <ol style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1.2rem; margin: 0; line-height: 1.6;">
+                            <li><strong>HTTP Method:</strong> In your n8n Webhook Node, set <code>HTTP Method</code> to <strong>POST</strong>.</li>
+                            <li><strong>Test Mode:</strong> If using a Test URL (contains <code>/webhook-test/</code>), click <strong>"Listen for Test Event"</strong> inside n8n before clicking <em>Test Webhook</em>.</li>
+                            <li><strong>Production Mode:</strong> If using a Production URL (contains <code>/webhook/</code>), toggle your n8n workflow switch to <strong>ACTIVE</strong>.</li>
+                            <li><strong>Network Address:</strong> If n8n runs in Docker/VM, use your server IP (e.g. <code>http://172.17.0.1:5678/...</code>) instead of <code>localhost</code>.</li>
+                        </ol>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-top: 1rem;">
+                        <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--accent-primary);">Available Payload Fields:</h4>
+                        <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+                            <li><code>target_id</code> - Database ID of monitored target</li>
+                            <li><code>target_name</code> - Human readable name of the site</li>
+                            <li><code>target_url</code> - Full URL of target site</li>
+                            <li><code>similarity_score</code> - Canvas expansion similarity (0.0 to 1.0)</li>
+                            <li><code>is_defaced</code> - Boolean flag confirming defacement</li>
+                            <li><code>confidence</code> - AI model diagnostic confidence (0-100%)</li>
+                            <li><code>change_type</code> - Classification (Defacement, Update, Error)</li>
+                            <li><code>analysis_summary</code> - Diagnostic text explanation</li>
+                            <li><code>screenshot_path</code> - Path to current audit screenshot</li>
+                            <li><code>diff_path</code> - Path to visual diff image</li>
+                            <li><code>popup_path</code> - Path to isolated popup screenshot (if captured)</li>
+                            <li><code>timestamp</code> - ISO timestamp of audit check</li>
+                        </ul>
                     </div>
                 </div>
 
@@ -234,11 +270,11 @@
                     <div class="meta-item"><strong>Website:</strong> <span id="inspect-site">Name</span></div>
                     <div class="meta-item"><strong>Score:</strong> <span id="inspect-score">0.0</span></div>
                     <div class="meta-item"><strong>Time:</strong> <span id="inspect-time">Timestamp</span></div>
-                    <div class="meta-item"><strong>AI Assessment:</strong> <span id="inspect-tag" class="tag">Assessment</span></div>
+                    <div class="meta-item"><strong>Assessment:</strong> <span id="inspect-tag" class="tag">Assessment</span></div>
                 </div>
-                
+
                 <div class="inspector-summary-box">
-                    <strong>AI Diagnostic Report:</strong>
+                    <strong>Diagnostic Report:</strong>
                     <p id="inspect-summary">Diagnostic analysis...</p>
                 </div>
 
@@ -250,18 +286,11 @@
                 <!-- Visual slider wrapper -->
                 <div class="visual-comparison-container" id="visual-container-split">
                     <div class="image-comparison-slider">
-                        <!-- Baseline image (Always bottom) -->
                         <img id="img-baseline" src="" alt="Baseline (Clean)">
-                        
-                        <!-- Overlay current / difference image (Dynamic width) -->
                         <div class="image-overlay-wrapper" id="img-overlay-wrap">
                             <img id="img-current" src="" alt="Audit Screenshot">
                         </div>
-                        
-                        <!-- Drag Slider control -->
                         <input type="range" min="0" max="100" value="50" class="comparison-slider" id="slider-handle">
-                        
-                        <!-- Labels -->
                         <div class="slider-label label-before">Baseline (Clean)</div>
                         <div class="slider-label label-after">Audit Snapshot (Slide)</div>
                     </div>
@@ -286,11 +315,11 @@
         </div>
     </div>
 
-    <!-- Modal: Edit Target Configurations -->
+    <!-- Modal: Edit Target -->
     <div id="edit-target-modal" class="modal-overlay">
         <div class="modal-content glassmorphism">
             <div class="modal-header">
-                <h2>Configure Website Monitoring Rules</h2>
+                <h2>Edit Target Website</h2>
                 <button class="modal-close" id="btn-close-edit-target">×</button>
             </div>
             <form id="form-edit-target" class="modal-form">
@@ -303,19 +332,9 @@
                     <label for="edit-target-url">Website URL</label>
                     <input type="url" id="edit-target-url" required autocomplete="off">
                 </div>
-                <div class="form-group">
-                    <label for="edit-target-ignored-selectors">Ignored Dynamic Elements (CSS Selectors)</label>
-                    <input type="text" id="edit-target-ignored-selectors" placeholder="e.g. .clock, #live-timer, .ticker, .timestamp" autocomplete="off">
-                    <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">Hide/mask dynamic elements (like clocks or live counters) before screenshotting to avoid false positives.</small>
-                </div>
-                <div class="form-group">
-                    <label for="edit-target-selectors">Target Section Fragment Selector</label>
-                    <input type="text" id="edit-target-selectors" placeholder="e.g. #main-content, main, article" autocomplete="off">
-                    <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">Crop/monitor a specific section/div selector instead of full page.</small>
-                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" id="btn-cancel-edit-target">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Rules</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
                 </div>
             </form>
         </div>
